@@ -9,9 +9,9 @@ use crate::domain::{
     },
     realm::ports::RealmRepository,
     role::{
-        entities::{GetUserRolesInput, Role, UpdateRoleInput},
+        entities::{CreateRoleInput, GetUserRolesInput, Role, UpdateRoleInput},
         ports::{RolePolicy, RoleRepository, RoleService},
-        value_objects::{UpdateRolePermissionsRequest, UpdateRoleRequest},
+        value_objects::{CreateRoleRequest, UpdateRolePermissionsRequest, UpdateRoleRequest},
     },
     seawatch::{EventStatus, SecurityEvent, SecurityEventRepository, SecurityEventType},
     user::ports::{UserRepository, UserRoleRepository},
@@ -80,6 +80,59 @@ where
     SE: SecurityEventRepository,
     W: WebhookRepository,
 {
+    async fn create_role(
+        &self,
+        identity: Identity,
+        input: CreateRoleInput,
+    ) -> Result<Role, CoreError> {
+        let realm = self
+            .realm_repository
+            .get_by_name(input.realm_name)
+            .await
+            .map_err(|_| CoreError::InternalServerError)?
+            .ok_or(CoreError::InternalServerError)?;
+
+        let realm_id = realm.id;
+        ensure_policy(
+            self.policy.can_create_role(&identity, &realm).await,
+            "insufficient permissions",
+        )?;
+
+        let role = self
+            .role_repository
+            .create(CreateRoleRequest {
+                client_id: None,
+                description: input.description,
+                name: input.name,
+                permissions: input.permissions,
+                realm_id,
+            })
+            .await
+            .map_err(|_| CoreError::InternalServerError)?;
+
+        self.security_event_repository
+            .store_event(SecurityEvent::new(
+                realm_id,
+                SecurityEventType::RoleCreated,
+                EventStatus::Success,
+                identity.id(),
+            ))
+            .await?;
+
+        self.webhook_repository
+            .notify(
+                realm_id,
+                WebhookPayload::new(
+                    WebhookTrigger::RoleCreated,
+                    realm_id.into(),
+                    Some(role.clone()),
+                ),
+            )
+            .await?;
+
+        Ok(role)
+    }
+
     async fn delete_role(
         &self,
         identity: Identity,
@@ -300,13 +353,14 @@ mod tests {
             ports::MockRealmRepository,
         },
         role::{
-            entities::{Role, permission::Permissions},
+            entities::{CreateRoleInput, Role, permission::Permissions},
             ports::{MockRoleRepository, RoleService},
             services::RoleServiceImpl,
+            value_objects::CreateRoleRequest,
         },
         seawatch::ports::MockSecurityEventRepository,
         user::ports::{MockUserRepository, MockUserRoleRepository},
-        webhook::ports::MockWebhookRepository,
+        webhook::{entities::webhook_payload::WebhookPayload, ports::MockWebhookRepository},
     };
     use std::{sync::Arc, vec};
 
@@ -354,6 +408,16 @@ mod tests {
             self
         }
 
+        fn with_successful_role_create(mut self, expected: CreateRoleRequest, role: Role) -> Self {
+            Arc::get_mut(&mut self.role_repo)
+                .unwrap()
+                .expect_create()
+                .with(eq(expected))
+                .times(1)
+                .return_once(move |_| Box::pin(async move { Ok(role) }));
+            self
+        }
+
         fn with_user_roles(mut self, user_id: Uuid, roles: Vec<Role>) -> Self {
             Arc::get_mut(&mut self.user_role_repo)
                 .unwrap()
@@ -384,6 +448,24 @@ mod tests {
                 .with(eq(client_id.to_string()), eq(realm_id))
                 .times(1)
                 .return_once(move |_, _| Box::pin(async move { Ok(client) }));
+            self
+        }
+
+        fn with_security_event_store(mut self) -> Self {
+            Arc::get_mut(&mut self.security_event_repo)
+                .unwrap()
+                .expect_store_event()
+                .times(1)
+                .return_once(|_| Box::pin(async move { Ok(()) }));
+            self
+        }
+
+        fn with_role_webhook_notify(mut self) -> Self {
+            Arc::get_mut(&mut self.webhook_repo)
+                .unwrap()
+                .expect_notify::<Role>()
+                .times(1)
+                .return_once(|_, _: WebhookPayload<Role>| Box::pin(async move { Ok(()) }));
             self
         }
 
@@ -443,6 +525,65 @@ mod tests {
         assert_eq!(returned_role.id, role.id);
         assert_eq!(returned_role.name, "test-role");
         assert_eq!(returned_role.realm_id, realm.id);
+    }
+
+    #[tokio::test]
+    async fn test_create_realm_role_success() {
+        let realm = create_test_realm();
+        let user = create_test_user_with_realm(&realm);
+        let identity = Identity::User(user.clone());
+        let created_role = create_test_role_with_params(
+            realm.id,
+            "service-manager",
+            vec![
+                Permissions::ManageUsers.name(),
+                Permissions::ViewRoles.name(),
+            ],
+            None,
+        );
+        let create_request = CreateRoleRequest {
+            name: "service-manager".to_string(),
+            description: Some("Realm-wide service management role".to_string()),
+            permissions: vec![
+                Permissions::ManageUsers.name(),
+                Permissions::ViewRoles.name(),
+            ],
+            realm_id: realm.id,
+            client_id: None,
+        };
+        let admin_role = create_test_role_with_params(
+            realm.id,
+            "realm-admin",
+            vec![Permissions::ManageRealm.name()],
+            None,
+        );
+
+        let service = RoleServiceTestBuilder::new()
+            .with_successful_realm_lookup(&realm.name, realm.clone())
+            .with_user_roles(user.id, vec![admin_role])
+            .with_successful_role_create(create_request, created_role.clone())
+            .with_security_event_store()
+            .with_role_webhook_notify()
+            .build();
+
+        let result = service
+            .create_role(
+                identity,
+                CreateRoleInput {
+                    realm_name: realm.name,
+                    name: "service-manager".to_string(),
+                    description: Some("Realm-wide service management role".to_string()),
+                    permissions: vec![
+                        Permissions::ManageUsers.name(),
+                        Permissions::ViewRoles.name(),
+                    ],
+                },
+            )
+            .await;
+
+        let role = assert_success(result);
+        assert_eq!(role.client_id, None);
+        assert_eq!(role.name, "service-manager");
     }
 
     #[tokio::test]

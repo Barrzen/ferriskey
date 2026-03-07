@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { BaseQuery } from '.'
+import { Schemas } from './api.client'
 
 export const useGetRoles = ({ realm = 'master' }: BaseQuery) => {
   return useQuery(
@@ -29,15 +30,29 @@ export const useCreateRole = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    ...window.tanstackApi.mutation(
-      'post',
-      '/realms/{realm_name}/clients/{client_id}/roles',
-      async (res) => {
-        return res.json()
-      }
-    ).mutationOptions,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['roles'] })
+    mutationFn: async ({
+      realmName,
+      clientId,
+      body,
+    }: {
+      realmName: string
+      clientId?: string
+      body: Schemas.CreateRoleValidator
+    }) => {
+      const endpoint = clientId
+        ? `/realms/${realmName}/clients/${clientId}/roles`
+        : `/realms/${realmName}/roles`
+
+      const response = await window.axios.post(endpoint, body)
+      return response.data
+    },
+    onSuccess: async (_, variables) => {
+      const { queryKey } = window.tanstackApi.get('/realms/{realm_name}/roles', {
+        path: {
+          realm_name: variables.realmName,
+        },
+      })
+      await queryClient.invalidateQueries({ queryKey })
       toast.success('Role created successfully')
     },
     onError(error) {
