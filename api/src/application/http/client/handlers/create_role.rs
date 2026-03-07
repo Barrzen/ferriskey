@@ -21,6 +21,7 @@ use uuid::Uuid;
 
 #[utoipa::path(
     post,
+    operation_id = "create_client_role",
     summary = "Create a new role",
     description = "Creates a new role for a specific client within a realm. This endpoint allows you to define roles that can be assigned to users or groups in the context of a client application.",
     path = "/{client_id}/roles",

@@ -14,7 +14,7 @@ import { useGetConfig } from './api/config.api'
 import { useConfig } from './hooks/use-config'
 import { createApiClient } from './api/api.client'
 import { TanstackQueryApiClient } from './api/api.tanstack'
-import axios, { AxiosInstance } from 'axios'
+import axios, { AxiosHeaders, AxiosInstance } from 'axios'
 import { BasicSpinner } from './components/ui/spinner'
 import { fetcher } from './api'
 import PageCompass from './pages/compass/page-compass'
@@ -23,6 +23,7 @@ import PageIdentityProviders from './pages/identity-providers/page-identity-prov
 import { useTheme } from './components/theme-provider'
 import PageUserFederation from './pages/user-federation/page-user-federation'
 import PageClientScope from './pages/client-scope/page-client-scope'
+import { authStore } from './store/auth.store'
 
 declare global {
   interface Window {
@@ -172,6 +173,18 @@ function App() {
         'Content-Type': 'application/json',
       },
       withCredentials: true,
+    })
+    axiosClient.interceptors.request.use((config) => {
+      const accessToken = authStore.getState().accessToken
+      const headers = AxiosHeaders.from(config.headers)
+
+      if (accessToken && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${accessToken}`)
+      }
+
+      config.headers = headers
+
+      return config
     })
     window.api = api
     window.tanstackApi = new TanstackQueryApiClient(api)

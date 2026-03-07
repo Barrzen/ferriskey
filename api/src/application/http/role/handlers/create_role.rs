@@ -29,6 +29,7 @@ pub struct CreateRoleResponse {
 
 #[utoipa::path(
     post,
+    operation_id = "create_realm_role",
     summary = "Create a new realm role",
     description = "Creates a new realm-scoped role in the specified realm.",
     path = "",

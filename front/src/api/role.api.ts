@@ -28,6 +28,15 @@ export const useGetRole = ({ realm, roleId }: BaseQuery & { roleId?: string }) =
 
 export const useCreateRole = () => {
   const queryClient = useQueryClient()
+  const createRealmRole = window.tanstackApi.mutation(
+    'post',
+    '/realms/{realm_name}/roles',
+    async (res) => (await res.json()).data
+  )
+  const createClientRole = window.tanstackApi.mutation(
+    'post',
+    '/realms/{realm_name}/clients/{client_id}/roles'
+  )
 
   return useMutation({
     mutationFn: async ({
@@ -39,12 +48,22 @@ export const useCreateRole = () => {
       clientId?: string
       body: Schemas.CreateRoleValidator
     }) => {
-      const endpoint = clientId
-        ? `/realms/${realmName}/clients/${clientId}/roles`
-        : `/realms/${realmName}/roles`
+      if (clientId) {
+        return createClientRole.mutationOptions.mutationFn({
+          path: {
+            realm_name: realmName,
+            client_id: clientId,
+          },
+          body,
+        })
+      }
 
-      const response = await window.axios.post(endpoint, body)
-      return response.data
+      return createRealmRole.mutationOptions.mutationFn({
+        path: {
+          realm_name: realmName,
+        },
+        body,
+      })
     },
     onSuccess: async (_, variables) => {
       const { queryKey } = window.tanstackApi.get('/realms/{realm_name}/roles', {
@@ -53,6 +72,18 @@ export const useCreateRole = () => {
         },
       })
       await queryClient.invalidateQueries({ queryKey })
+
+      if (variables.clientId) {
+        const clientRolesQuery = window.tanstackApi.get('/realms/{realm_name}/clients/{client_id}/roles', {
+          path: {
+            realm_name: variables.realmName,
+            client_id: variables.clientId,
+          },
+        })
+
+        await queryClient.invalidateQueries({ queryKey: clientRolesQuery.queryKey })
+      }
+
       toast.success('Role created successfully')
     },
     onError(error) {
