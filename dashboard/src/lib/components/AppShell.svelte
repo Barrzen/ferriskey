@@ -1,9 +1,13 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import { page } from '$app/state';
+  import { browser } from '$app/environment';
+  import { onMount } from 'svelte';
   import {
     Bell,
     ChevronDown,
     LifeBuoy,
+    LogOut,
     Menu,
     Search,
     Sparkles,
@@ -12,6 +16,7 @@
   import BrandLogo from '$components/BrandLogo.svelte';
   import ThemeToggle from '$components/ThemeToggle.svelte';
   import { navigationGroups } from '$config/navigation';
+  import { resolveApiBase } from '$lib/api/config';
   import { ripple } from '$utils/ripple';
   import type { SessionUser } from '$lib/auth/session';
 
@@ -52,12 +57,47 @@
   );
 
   const userMeta = $derived(user.preferredUsername ?? user.email ?? realm);
+  const loginHref = $derived(
+    `/realms/${realm}/authentication/login?next=${encodeURIComponent(`${page.url.pathname}${page.url.search}`)}`
+  );
+  const logoutHref = $derived.by(() => {
+    const target = new URL(
+      `${resolveApiBase(page.url)}/realms/${realm}/protocol/openid-connect/logout`
+    );
+
+    target.searchParams.set('client_id', 'security-admin-console');
+    target.searchParams.set(
+      'post_logout_redirect_uri',
+      `${page.url.origin}/realms/${realm}/authentication/login`
+    );
+
+    return target.toString();
+  });
 
   function isActive(href: string) {
     return (
       page.url.pathname === href || page.url.pathname.startsWith(`${href}/`)
     );
   }
+
+  onMount(() => {
+    if (!browser || !user.expiresAt) {
+      return;
+    }
+
+    const remaining = user.expiresAt - Date.now();
+
+    if (remaining <= 0) {
+      void goto(loginHref, { replaceState: true });
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void goto(loginHref, { replaceState: true });
+    }, remaining);
+
+    return () => window.clearTimeout(timeout);
+  });
 </script>
 
 <div class="page-shell">
@@ -192,6 +232,9 @@
           >
             <Bell size={18} />
           </button>
+          <a href={logoutHref} class="app-shell__icon-button" aria-label="Sign out" use:ripple>
+            <LogOut size={18} />
+          </a>
           <button type="button" class="app-shell__profile" use:ripple>
             <span class="app-shell__avatar">{userInitials}</span>
             <div>

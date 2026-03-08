@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { PageData } from './$types';
   import {
     Activity,
     ArrowUpRight,
@@ -13,65 +14,141 @@
   import TrendAreaChart from '$components/TrendAreaChart.svelte';
   import { ripple } from '$utils/ripple';
 
+  let { data }: { data: PageData } = $props();
   const currentRealm = String(page.params.realm ?? 'master');
-  const weeklyTraffic = [
-    18, 26, 24, 31, 35, 29, 38, 42, 39, 46, 51, 49, 54, 58
-  ];
-  const downloadBars = [76, 58, 91, 66, 84, 72, 95];
-  const sourceRows = [
-    { label: 'Direct sign-in', value: '38%', tone: 'var(--primary)' },
-    { label: 'Social login', value: '26%', tone: 'var(--success)' },
-    { label: 'Magic links', value: '18%', tone: 'var(--warning)' },
-    { label: 'Service accounts', value: '18%', tone: 'var(--text-muted)' }
-  ];
-  const moduleRows = [
+
+  const activeUsers = $derived(data.users.filter((user) => user.enabled).length);
+  const serviceAccounts = $derived(
+    data.users.filter((user) => Boolean(user.client_id)).length
+  );
+  const verifiedUsers = $derived(
+    data.users.filter((user) => user.email_verified).length
+  );
+  const verifiedRate = $derived(
+    data.users.length === 0
+      ? 0
+      : Math.round((verifiedUsers / data.users.length) * 1000) / 10
+  );
+  const pendingActions = $derived(
+    data.users.filter((user) => user.required_actions.length > 0).length
+  );
+  const confidentialClients = $derived(
+    data.clients.filter((client) => !client.public_client).length
+  );
+  const publicClients = $derived(
+    data.clients.filter((client) => client.public_client).length
+  );
+  const serviceClients = $derived(
+    data.clients.filter((client) => client.service_account_enabled).length
+  );
+  const directGrantClients = $derived(
+    data.clients.filter((client) => client.direct_access_grants_enabled).length
+  );
+  const secretCoverage = $derived(
+    data.clients.length === 0
+      ? 0
+      : Math.round(
+          (data.clients.filter((client) => !client.public_client && client.secret).length /
+            data.clients.length) *
+            1000
+        ) / 10
+  );
+  const averagePermissions = $derived(
+    data.roles.length === 0
+      ? 0
+      : Math.round(
+          data.roles.reduce((total, role) => total + role.permissions.length, 0) /
+            data.roles.length
+        )
+  );
+  const weeklyTraffic = $derived([
+    Math.max(12, data.users.length),
+    Math.max(18, activeUsers),
+    Math.max(16, verifiedUsers),
+    Math.max(20, activeUsers + publicClients),
+    Math.max(24, activeUsers + confidentialClients),
+    Math.max(26, activeUsers + data.roles.length),
+    Math.max(28, activeUsers + data.clients.length)
+  ]);
+  const downloadBars = $derived([
+    Math.max(24, confidentialClients),
+    Math.max(20, publicClients),
+    Math.max(18, serviceClients),
+    Math.max(14, pendingActions),
+    Math.max(22, data.roles.length),
+    Math.max(20, directGrantClients),
+    Math.max(18, Math.round(secretCoverage))
+  ]);
+  const sourceRows = $derived([
+    {
+      label: 'Members',
+      value: `${data.users.length === 0 ? 0 : Math.round(((data.users.length - serviceAccounts) / data.users.length) * 100)}%`,
+      tone: 'var(--primary)'
+    },
+    {
+      label: 'Service accounts',
+      value: `${data.users.length === 0 ? 0 : Math.round((serviceAccounts / data.users.length) * 100)}%`,
+      tone: 'var(--success)'
+    },
+    {
+      label: 'Public clients',
+      value: `${data.clients.length === 0 ? 0 : Math.round((publicClients / data.clients.length) * 100)}%`,
+      tone: 'var(--warning)'
+    },
+    {
+      label: 'Confidential clients',
+      value: `${data.clients.length === 0 ? 0 : Math.round((confidentialClients / data.clients.length) * 100)}%`,
+      tone: 'var(--text-muted)'
+    }
+  ]);
+  const moduleRows = $derived([
     {
       name: 'Users workspace',
-      progress: '92%',
-      health: 'Stable',
-      tone: 'var(--success)'
+      progress: `${Math.min(100, 40 + data.users.length)}%`,
+      health: pendingActions > 0 ? 'Needs follow-up' : 'Stable',
+      tone: pendingActions > 0 ? 'var(--warning)' : 'var(--success)'
     },
     {
       name: 'Clients and scopes',
-      progress: '74%',
-      health: 'In progress',
-      tone: 'var(--primary)'
+      progress: `${Math.min(100, 38 + data.clients.length)}%`,
+      health: secretCoverage >= 60 ? 'Stable' : 'Reviewing',
+      tone: secretCoverage >= 60 ? 'var(--primary)' : 'var(--warning)'
     },
     {
-      name: 'Security analytics',
-      progress: '61%',
-      health: 'Reviewing',
-      tone: 'var(--warning)'
+      name: 'Role model',
+      progress: `${Math.min(100, 34 + data.roles.length)}%`,
+      health: averagePermissions > 0 ? 'Mapped' : 'Empty',
+      tone: averagePermissions > 0 ? 'var(--success)' : 'var(--text-muted)'
     },
     {
-      name: 'Provider federation',
-      progress: '48%',
-      health: 'Queued',
-      tone: 'var(--text-muted)'
+      name: 'Auth journeys',
+      progress: `${pendingActions === 0 ? 88 : 64}%`,
+      health: pendingActions === 0 ? 'Ready' : 'In progress',
+      tone: pendingActions === 0 ? 'var(--success)' : 'var(--primary)'
     }
-  ];
-  const activityRows = [
+  ]);
+  const activityRows = $derived([
     {
-      title: 'Bulk invitation campaign completed',
-      meta: '2 minutes ago',
+      title: `${activeUsers} active identities available in ${currentRealm}`,
+      meta: `${verifiedUsers} verified emails and ${pendingActions} pending actions`,
       tone: 'var(--success)'
     },
     {
-      title: 'Client secret rotation requested',
-      meta: '16 minutes ago',
+      title: `${data.clients.length} clients currently registered`,
+      meta: `${confidentialClients} confidential and ${publicClients} public clients`,
       tone: 'var(--primary)'
     },
     {
-      title: 'Blocked 4 password spray attempts',
-      meta: '28 minutes ago',
-      tone: 'var(--danger)'
+      title: `${data.roles.length} roles define access boundaries`,
+      meta: `${averagePermissions} permissions per role on average`,
+      tone: 'var(--warning)'
     },
     {
-      title: 'New LDAP sync dry run finished',
-      meta: '51 minutes ago',
-      tone: 'var(--warning)'
+      title: `${serviceAccounts} service accounts support automation`,
+      meta: `${serviceClients} clients expose service account flows`,
+      tone: 'var(--text-muted)'
     }
-  ];
+  ]);
 </script>
 
 <div class="overview grid-auto">
@@ -108,21 +185,21 @@
     </div>
 
     <div class="overview__hero-panel">
-      <p>Weekly sales</p>
-      <strong>$31,480</strong>
-      <span>+18.4% compared with last week</span>
+      <p>Realm footprint</p>
+      <strong>{activeUsers}</strong>
+      <span>{verifiedRate}% of identities have verified email</span>
       <div class="overview__hero-kpis">
         <div>
-          <small>Auth success</small>
-          <strong>92.7%</strong>
+          <small>Clients</small>
+          <strong>{data.clients.length}</strong>
         </div>
         <div>
-          <small>MFA adoption</small>
-          <strong>84.1%</strong>
+          <small>Roles</small>
+          <strong>{data.roles.length}</strong>
         </div>
         <div>
-          <small>Incidents</small>
-          <strong>04</strong>
+          <small>Pending</small>
+          <strong>{pendingActions}</strong>
         </div>
       </div>
     </div>
@@ -131,35 +208,35 @@
   <section class="overview__metrics">
     <MetricCard
       title="Active identities"
-      value="18,426"
-      delta="+8.4%"
-      meta="compared with last week"
+      value={String(activeUsers)}
+      delta={`${serviceAccounts} services`}
+      meta="live realm members and automations"
     >
       {#snippet icon()}<UserRoundCheck size={24} strokeWidth={2.2} />{/snippet}
     </MetricCard>
     <MetricCard
-      title="Successful sign-ins"
-      value="92.7%"
-      delta="+1.6%"
-      meta="security posture improving"
+      title="Verified identities"
+      value={`${verifiedRate}%`}
+      delta={`${verifiedUsers} accounts`}
+      meta="email verification completion"
       tone="success"
     >
       {#snippet icon()}<ShieldCheck size={24} strokeWidth={2.2} />{/snippet}
     </MetricCard>
     <MetricCard
-      title="Threat events blocked"
-      value="148"
-      delta="+12.1%"
-      meta="password spray and token abuse"
+      title="Clients in scope"
+      value={String(data.clients.length)}
+      delta={`${confidentialClients} confidential`}
+      meta="registered applications and services"
       tone="warning"
     >
       {#snippet icon()}<Activity size={24} strokeWidth={2.2} />{/snippet}
     </MetricCard>
     <MetricCard
-      title="Flow revisions"
-      value="29"
-      delta="+4.0%"
-      meta="staged in Compass"
+      title="Role definitions"
+      value={String(data.roles.length)}
+      delta={`${averagePermissions} perms avg`}
+      meta="permission sets across realm access"
       tone="primary"
     >
       {#snippet icon()}<Waypoints size={24} strokeWidth={2.2} />{/snippet}
@@ -168,48 +245,48 @@
 
   <section class="overview__content">
     <article class="overview__card glass-panel">
-      <div class="overview__section-head">
-        <div>
-          <p>Website visits</p>
-          <h3>Authentication traffic keeps rising with controlled risk.</h3>
+        <div class="overview__section-head">
+          <div>
+            <p>Identity growth</p>
+            <h3>Live realm counts now shape the overview instead of placeholder metrics.</h3>
+          </div>
+          <strong>{activeUsers + data.clients.length + data.roles.length}</strong>
         </div>
-        <strong>58k</strong>
-      </div>
 
       <TrendAreaChart points={weeklyTraffic} />
 
-      <div class="overview__legend">
-        <div><span style="color: var(--primary)"></span>Interactive users</div>
-        <div><span style="color: var(--success)"></span>SSO completions</div>
-        <div><span style="color: var(--warning)"></span>Bot mitigation</div>
-      </div>
+        <div class="overview__legend">
+          <div><span style="color: var(--primary)"></span>Active identities</div>
+          <div><span style="color: var(--success)"></span>Verified accounts</div>
+          <div><span style="color: var(--warning)"></span>Realm resources</div>
+        </div>
     </article>
 
     <div class="overview__stack">
       <article class="overview__card glass-panel">
         <div class="overview__section-head overview__section-head--compact">
           <div>
-            <p>Current visits</p>
-            <h3>Sign-in mix</h3>
+            <p>Directory mix</p>
+            <h3>Identity composition</h3>
           </div>
         </div>
 
         <div class="overview__gauges">
           <RingGauge
-            value={57}
-            label="Desktop"
-            meta="still the primary admin surface"
+            value={data.users.length === 0 ? 0 : Math.round(((data.users.length - serviceAccounts) / data.users.length) * 100)}
+            label="Members"
+            meta="human identities in the realm"
           />
           <RingGauge
-            value={31}
-            label="Mobile"
-            meta="realm admins on the move"
+            value={data.users.length === 0 ? 0 : Math.round((serviceAccounts / data.users.length) * 100)}
+            label="Services"
+            meta="automation and machine access"
             color="var(--success)"
           />
           <RingGauge
-            value={12}
-            label="API"
-            meta="service accounts and jobs"
+            value={verifiedRate}
+            label="Verified"
+            meta="email verification posture"
             color="var(--warning)"
           />
         </div>
@@ -218,8 +295,8 @@
       <article class="overview__card glass-panel">
         <div class="overview__section-head overview__section-head--compact">
           <div>
-            <p>Traffic by source</p>
-            <h3>Current download</h3>
+            <p>Realm distribution</p>
+            <h3>Current split</h3>
           </div>
         </div>
 
@@ -247,13 +324,13 @@
 
   <section class="overview__content overview__content--bottom">
     <article class="overview__card glass-panel">
-      <div class="overview__section-head">
-        <div>
-          <p>Migration health</p>
-          <h3>Core dashboard modules moving into the new design system.</h3>
+        <div class="overview__section-head">
+          <div>
+            <p>Live module posture</p>
+            <h3>Realm data now drives the key surfaces already migrated into the new UI.</h3>
+          </div>
+          <BadgeCheck size={20} color="var(--primary)" />
         </div>
-        <BadgeCheck size={20} color="var(--primary)" />
-      </div>
 
       <div class="overview__table">
         {#each moduleRows as row (row.name)}
@@ -275,12 +352,12 @@
     </article>
 
     <article class="overview__card glass-panel">
-      <div class="overview__section-head">
-        <div>
-          <p>Order timeline</p>
-          <h3>Latest realm and security activity.</h3>
+        <div class="overview__section-head">
+          <div>
+            <p>Realm snapshot</p>
+            <h3>Current operational signals from live users, clients, and roles.</h3>
+          </div>
         </div>
-      </div>
 
       <div class="overview__timeline">
         {#each activityRows as item (item.title)}

@@ -11,6 +11,7 @@
   const clientId = $derived(
     page.url.searchParams.get('client_id') ?? 'security-admin-console'
   );
+  const next = $derived(page.url.searchParams.get('next'));
   const benefits = [
     'Minimal Design visual system across auth and admin pages',
     'Clearer MFA and required action entry points',
@@ -55,19 +56,23 @@
       }
 
       if (response.status === 'Success') {
-        await goto(`/realms/${realmName}/overview`, { invalidateAll: true });
+        await goto(next ?? `/realms/${realmName}/overview`, { invalidateAll: true });
         return;
       }
 
-      if (response.status === 'RequiresOtpChallenge') {
-        errorMessage =
-          'OTP challenge is required. That follow-up screen has not been migrated into the dashboard yet.';
+      if (response.status === 'RequiresOtpChallenge' && response.token) {
+        await goto(
+          `/realms/${realmName}/authentication/otp?token=${encodeURIComponent(response.token)}`
+        );
         return;
       }
 
-      if (response.status === 'RequiresActions') {
-        errorMessage =
-          'This account has required actions pending. Those flows still need to be migrated from the legacy app.';
+      if (response.status === 'RequiresActions' && response.token && response.required_actions?.length) {
+        const nextAction = response.required_actions[0];
+
+        await goto(
+          `/realms/${realmName}/authentication/required-action?execution=${encodeURIComponent(nextAction.toUpperCase())}&client_data=${encodeURIComponent(response.token)}`
+        );
         return;
       }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { PageData } from './$types';
   import { KeyRound, PanelsTopLeft, Rocket, Shield } from 'lucide-svelte';
   import ChipTabs from '$components/ChipTabs.svelte';
   import LinearMeter from '$components/LinearMeter.svelte';
@@ -6,37 +7,89 @@
   import SectionCard from '$components/SectionCard.svelte';
   import { ripple } from '$utils/ripple';
 
+  let { data }: { data: PageData } = $props();
   const tabs = ['All clients', 'Confidential', 'Public', 'Deprecated'];
-  const clients = [
-    {
-      name: 'Barrzen Portal',
-      id: 'barrzen-portal',
-      kind: 'Confidential',
-      status: 'Active',
-      redirects: '12 URIs'
-    },
-    {
-      name: 'Partner Console',
-      id: 'partner-console',
-      kind: 'Public',
-      status: 'Review',
-      redirects: '4 URIs'
-    },
-    {
-      name: 'Mobile API',
-      id: 'mobile-api',
-      kind: 'Bearer-only',
-      status: 'Active',
-      redirects: 'API only'
-    },
-    {
-      name: 'Legacy Backoffice',
-      id: 'legacy-backoffice',
-      kind: 'Confidential',
-      status: 'Deprecated',
-      redirects: '7 URIs'
+  let activeTab = $state('All clients');
+
+  function clientKind(client: PageData['clients'][number]) {
+    if (client.service_account_enabled) {
+      return 'Service account';
     }
-  ];
+
+    if (client.public_client) {
+      return 'Public';
+    }
+
+    return 'Confidential';
+  }
+
+  function clientStatus(client: PageData['clients'][number]) {
+    if (!client.enabled) {
+      return 'Deprecated';
+    }
+
+    if (client.direct_access_grants_enabled) {
+      return 'Review';
+    }
+
+    return 'Active';
+  }
+
+  const confidentialCount = $derived(
+    data.clients.filter((client) => !client.public_client).length
+  );
+  const publicCount = $derived(
+    data.clients.filter((client) => client.public_client).length
+  );
+  const deprecatedCount = $derived(
+    data.clients.filter((client) => !client.enabled).length
+  );
+  const secretCount = $derived(
+    data.clients.filter((client) => Boolean(client.secret)).length
+  );
+  const redirectCoverage = $derived(
+    data.clients.length === 0
+      ? 0
+      : Math.round(
+          (data.clients.filter(
+            (client) => (client.redirect_uris?.length ?? 0) > 0 || client.service_account_enabled
+          ).length /
+            data.clients.length) *
+            100
+        )
+  );
+  const secretCoverage = $derived(
+    data.clients.length === 0 ? 0 : Math.round((secretCount / data.clients.length) * 100)
+  );
+  const grantCoverage = $derived(
+    data.clients.length === 0
+      ? 0
+      : Math.round(
+          (data.clients.filter((client) => !client.direct_access_grants_enabled).length /
+            data.clients.length) *
+            100
+        )
+  );
+
+  const visibleClients = $derived.by(() =>
+    data.clients.filter((client) => {
+      if (activeTab === 'Confidential') {
+        return !client.public_client;
+      }
+
+      if (activeTab === 'Public') {
+        return client.public_client;
+      }
+
+      if (activeTab === 'Deprecated') {
+        return !client.enabled;
+      }
+
+      return true;
+    })
+  );
+
+  const selectedClient = $derived(visibleClients[0] ?? data.clients[0] ?? null);
 </script>
 
 <div class="clients-page">
@@ -50,7 +103,7 @@
       >
     </div>
     <div class="clients-page__hero-actions">
-      <ChipTabs items={tabs} active="All clients" tone="soft" />
+      <ChipTabs items={tabs} active={activeTab} tone="soft" onselect={(item) => (activeTab = item)} />
       <button type="button" class="clients-page__cta" use:ripple
         >New client</button
       >
@@ -60,26 +113,26 @@
   <section class="clients-page__metrics">
     <MetricCard
       title="Managed clients"
-      value="286"
-      delta="+12"
-      meta="added this month"
+      value={String(data.clients.length)}
+      delta={`${publicCount} public`}
+      meta={`${confidentialCount} confidential clients`}
     >
       {#snippet icon()}<PanelsTopLeft size={24} strokeWidth={2.2} />{/snippet}
     </MetricCard>
     <MetricCard
       title="Secret rotation"
-      value="93%"
-      delta="+6%"
-      meta="within 30-day policy"
+      value={`${secretCoverage}%`}
+      delta={`${secretCount} with secret`}
+      meta="live credential coverage"
       tone="success"
     >
       {#snippet icon()}<KeyRound size={24} strokeWidth={2.2} />{/snippet}
     </MetricCard>
     <MetricCard
       title="Grant hygiene"
-      value="88%"
-      delta="+3%"
-      meta="least-privilege trend"
+      value={`${grantCoverage}%`}
+      delta={`${deprecatedCount} deprecated`}
+      meta="clients without direct grants"
       tone="primary"
     >
       {#snippet icon()}<Shield size={24} strokeWidth={2.2} />{/snippet}
@@ -93,36 +146,66 @@
       description="Searchable cards for IDs, types, states, and redirect footprint."
     >
       <div class="client-list">
-        {#each clients as client (client.id)}
-          <div class="client-list__row">
-            <div>
-              <strong>{client.name}</strong>
-              <small>{client.id}</small>
+        {#if visibleClients.length > 0}
+          {#each visibleClients as client (client.id)}
+            <div class="client-list__row">
+              <div>
+                <strong>{client.name}</strong>
+                <small>{client.client_id}</small>
+              </div>
+              <div>
+                <strong>{clientKind(client)}</strong>
+                <small>
+                  {#if client.service_account_enabled}
+                    Service account enabled
+                  {:else if (client.redirect_uris?.length ?? 0) > 0}
+                    {client.redirect_uris?.length} redirect URI(s)
+                  {:else}
+                    No redirect URIs
+                  {/if}
+                </small>
+              </div>
+              <span>{clientStatus(client)}</span>
             </div>
-            <div>
-              <strong>{client.kind}</strong>
-              <small>{client.redirects}</small>
-            </div>
-            <span>{client.status}</span>
+          {/each}
+        {:else}
+          <div class="clients-page__empty">
+            <strong>No clients in this slice.</strong>
+            <small>Change the active tab to inspect a different segment.</small>
           </div>
-        {/each}
+        {/if}
       </div>
     </SectionCard>
 
     <div class="clients-page__stack">
       <SectionCard
         eyebrow="Current detail"
-        title="Barrzen Portal"
+        title={selectedClient?.name ?? 'No client selected'}
         compact={true}
       >
-        <div class="clients-page__detail-grid">
-          <div><span>Client type</span><strong>Confidential</strong></div>
-          <div><span>Access grants</span><strong>Code, Refresh</strong></div>
-          <div><span>Redirect URIs</span><strong>12 managed</strong></div>
-          <div>
-            <span>Secret status</span><strong>Rotated 4 days ago</strong>
+        {#if selectedClient}
+          <div class="clients-page__detail-grid">
+            <div><span>Client type</span><strong>{clientKind(selectedClient)}</strong></div>
+            <div><span>Protocol</span><strong>{selectedClient.protocol}</strong></div>
+            <div>
+              <span>Redirect URIs</span>
+              <strong>
+                {selectedClient.service_account_enabled
+                  ? 'Service flow only'
+                  : `${selectedClient.redirect_uris?.length ?? 0} managed`}
+              </strong>
+            </div>
+            <div>
+              <span>Secret status</span>
+              <strong>{selectedClient.secret ? 'Configured' : 'Not exposed'}</strong>
+            </div>
           </div>
-        </div>
+        {:else}
+          <div class="clients-page__empty clients-page__empty--compact">
+            <strong>No client loaded.</strong>
+            <small>This realm has no registered clients yet.</small>
+          </div>
+        {/if}
       </SectionCard>
 
       <SectionCard
@@ -133,19 +216,19 @@
         <div class="clients-page__meters">
           <LinearMeter
             label="Redirect URI hygiene"
-            value={94}
-            meta="wildcard usage nearly eliminated"
+            value={redirectCoverage}
+            meta="clients expose redirect metadata or service flows"
           />
           <LinearMeter
             label="Secret freshness"
-            value={89}
-            meta="rotation policy enforced"
+            value={secretCoverage}
+            meta="confidential clients with visible secret material"
             tone="var(--success)"
           />
           <LinearMeter
             label="Grant simplification"
-            value={71}
-            meta="some legacy flows remain"
+            value={grantCoverage}
+            meta="direct access grants disabled where possible"
             tone="var(--warning)"
           />
         </div>
@@ -157,8 +240,18 @@
         compact={true}
       >
         <div class="clients-page__credential-card">
-          <strong>Secret available</strong>
-          <small>Last revealed 21 days ago by Barrzen Product team.</small>
+          <strong>{selectedClient?.secret ? 'Secret available' : 'Secret not exposed'}</strong>
+          <small>
+            {#if selectedClient}
+              {selectedClient.public_client
+                ? 'This client is public and should not rely on a confidential secret.'
+                : selectedClient.secret
+                  ? 'The current API response includes secret material for this client.'
+                  : 'The API does not currently expose a client secret for this entry.'}
+            {:else}
+              Select a client to inspect its credential posture.
+            {/if}
+          </small>
           <button type="button" use:ripple>Rotate secret</button>
         </div>
       </SectionCard>
@@ -173,7 +266,8 @@
   .clients-page__content,
   .clients-page__meters,
   .client-list,
-  .clients-page__detail-grid {
+  .clients-page__detail-grid,
+  .clients-page__empty {
     display: grid;
     gap: 24px;
   }
@@ -252,6 +346,21 @@
 
   strong {
     color: var(--text);
+  }
+
+  .clients-page__empty {
+    gap: 8px;
+    padding: 16px;
+    border-radius: 18px;
+    background: var(--bg-inset);
+    border: 1px dashed var(--border);
+  }
+
+  .clients-page__empty--compact {
+    gap: 6px;
+    padding: 0;
+    background: transparent;
+    border: 0;
   }
 
   .clients-page__detail-grid {

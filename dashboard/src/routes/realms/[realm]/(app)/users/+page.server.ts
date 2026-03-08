@@ -1,6 +1,5 @@
-import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { apiRequest, ApiError } from '$lib/api/client';
+import { loadRealmResource } from '$lib/server/realm-api';
 
 type Role = {
   id: string;
@@ -26,28 +25,12 @@ type UsersResponse = {
 };
 
 export const load: PageServerLoad = async ({ cookies, fetch, params, url }) => {
-  const token = cookies.get('FERRISKEY_IDENTITY');
+  const response = await loadRealmResource<UsersResponse>(
+    { cookies, fetch, params, url },
+    `/realms/${params.realm}/users`
+  );
 
-  try {
-    const response = await apiRequest<UsersResponse>({
-      url,
-      fetcher: fetch,
-      path: `/realms/${params.realm}/users`,
-      init: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    });
-
-    return {
-      users: response.data
-    };
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401) {
-      throw redirect(303, `/realms/${params.realm}/authentication/login`);
-    }
-
-    throw error;
-  }
+  return {
+    users: response.data
+  };
 };
