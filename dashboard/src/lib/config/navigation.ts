@@ -1,6 +1,7 @@
 import {
   Activity,
   BadgeCheck,
+  Building2,
   Compass,
   KeyRound,
   LayoutDashboard,
@@ -36,6 +37,12 @@ export const navigationGroups: NavigationGroup[] = [
         description: 'Live realm health and trends',
         icon: LayoutDashboard,
         href: (realm) => `/realms/${realm}/overview`
+      },
+      {
+        title: 'Realms',
+        description: 'Switch and manage realms',
+        icon: Building2,
+        href: (realm) => `/realms/${realm}/realms`
       },
       {
         title: 'Users',

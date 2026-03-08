@@ -6,16 +6,14 @@
   import {
     Bell,
     ChevronDown,
-    LifeBuoy,
     LogOut,
     Menu,
-    Search,
-    Sparkles,
-    Zap
+    Search
   } from 'lucide-svelte';
   import BrandLogo from '$components/BrandLogo.svelte';
   import ThemeToggle from '$components/ThemeToggle.svelte';
   import { navigationGroups } from '$config/navigation';
+  import { sanitizeCurrentAppPath } from '$utils/auth-redirect';
   import { ripple } from '$utils/ripple';
   import type { SessionUser } from '$lib/auth/session';
 
@@ -43,11 +41,6 @@
   );
 
   const activeTitle = $derived(breadcrumbs.at(-1) ?? 'overview');
-  const teamHighlights = [
-    { label: 'Team', value: 'Barrzen Core' },
-    { label: 'Plan', value: 'Enterprise' },
-    { label: 'Sync', value: 'Live' }
-  ];
 
   const userInitials = $derived.by(() =>
     user.name
@@ -59,8 +52,9 @@
   );
 
   const userMeta = $derived(user.preferredUsername ?? user.email ?? realm);
+  const sanitizedCurrentPath = $derived(sanitizeCurrentAppPath(page.url));
   const loginHref = $derived(
-    `/realms/${realm}/authentication/login?next=${encodeURIComponent(`${page.url.pathname}${page.url.search}`)}`
+    `/realms/${realm}/authentication/login?next=${encodeURIComponent(sanitizedCurrentPath)}`
   );
   const logoutHref = $derived.by(() => {
     const target = new URL(
@@ -117,15 +111,15 @@
       class="app-shell__sidebar"
     >
       <div class="app-shell__brand-block">
-        <BrandLogo />
+        <BrandLogo showLabel={false} />
         <button type="button" class="app-shell__realm-switch" use:ripple onclick={() => (realmDropdownOpen = !realmDropdownOpen)}>
           <div>
-            <small>Workspace</small>
+            <small>Realm</small>
             <strong>{realm}</strong>
           </div>
           <ChevronDown size={16} />
         </button>
-        {#if realmDropdownOpen && realms.length > 1}
+        {#if realmDropdownOpen}
           <div class="app-shell__realm-dropdown">
             {#each realms as r (r.name)}
               <a
@@ -137,27 +131,15 @@
                 <strong>{r.name}</strong>
               </a>
             {/each}
+            <a
+              href="/realms/{realm}/realms"
+              class="app-shell__realm-option app-shell__realm-option--manage"
+              onclick={() => (realmDropdownOpen = false)}
+            >
+              <strong>Manage realms</strong>
+            </a>
           </div>
         {/if}
-      </div>
-
-      <div class="app-shell__workspace glass-panel">
-        <div class="app-shell__workspace-icon"><Zap size={18} /></div>
-        <div>
-          <strong>Barrzen Minimal</strong>
-          <p>
-            Design-accurate admin shell with dark mode, ripple feedback, and
-            cleaner navigation states.
-          </p>
-        </div>
-        <div class="app-shell__workspace-stats">
-          {#each teamHighlights as item (item.label)}
-            <div>
-              <small>{item.label}</small>
-              <strong>{item.value}</strong>
-            </div>
-          {/each}
-        </div>
       </div>
 
       <nav class="app-shell__nav" aria-label="Dashboard navigation">
@@ -189,19 +171,6 @@
         {/each}
       </nav>
 
-      <div class="app-shell__support">
-        <div class="app-shell__support-icon"><LifeBuoy size={18} /></div>
-        <div>
-          <strong>Need design support?</strong>
-          <p>
-            Keep the replacement dashboard aligned with Barrzen Minimal Design
-            while modules migrate from the legacy app.
-          </p>
-        </div>
-        <a href="https://barrzen.com" target="_blank" rel="noreferrer"
-          >Barrzen.com</a
-        >
-      </div>
     </aside>
 
     <div class="app-shell__main">
@@ -225,8 +194,8 @@
             </div>
             <h1>{activeTitle}</h1>
             <p>
-              Minimal Design layout tuned for Barrzen branding and Ferriskey
-              realm operations.
+              FerrisKey admin workspace for users, clients, roles, and realm
+              operations.
             </p>
           </div>
         </div>
@@ -283,9 +252,7 @@
     border-right: 1px solid var(--border);
   }
 
-  .app-shell__brand-block,
-  .app-shell__workspace,
-  .app-shell__support {
+  .app-shell__brand-block {
     display: grid;
     gap: 14px;
   }
@@ -339,32 +306,23 @@
   }
   .app-shell__realm-option:hover { background: var(--bg-inset); color: var(--text); }
   .app-shell__realm-option--active { background: var(--primary-soft); color: var(--primary); }
+  .app-shell__realm-option--manage {
+    margin-top: 6px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
   .app-shell__realm-option strong { color: inherit; }
 
   .app-shell__realm-switch small,
   .app-shell__breadcrumbs,
   .app-shell__header-main p,
   .app-shell__search,
-  .app-shell__support p,
-  .app-shell__workspace p,
-  .app-shell__workspace-stats small,
   .app-shell__link span,
   .app-shell__nav p,
   .app-shell__profile small {
     color: var(--text-muted);
   }
 
-  .app-shell__workspace,
-  .app-shell__support {
-    padding: 18px;
-    border-radius: 20px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-md);
-  }
-
-  .app-shell__workspace-icon,
-  .app-shell__support-icon,
   .app-shell__link-icon,
   .app-shell__avatar,
   .app-shell__icon-button,
@@ -376,8 +334,6 @@
     border-radius: 14px;
   }
 
-  .app-shell__workspace-icon,
-  .app-shell__support-icon,
   .app-shell__link-icon,
   .app-shell__avatar {
     background: var(--primary-soft);
@@ -385,35 +341,15 @@
     font-weight: 800;
   }
 
-  .app-shell__workspace strong,
-  .app-shell__support strong,
   .app-shell__link strong,
   .app-shell__profile strong {
     display: block;
   }
 
-  .app-shell__workspace p,
-  .app-shell__support p,
   .app-shell__link span {
     margin: 4px 0 0;
     font-size: 0.86rem;
     line-height: 1.6;
-  }
-
-  .app-shell__workspace-stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-  }
-
-  .app-shell__workspace-stats div {
-    padding: 12px;
-    border-radius: 16px;
-    background: var(--bg-inset);
-  }
-
-  .app-shell__workspace-stats strong {
-    font-size: 0.92rem;
   }
 
   .app-shell__nav {
@@ -470,22 +406,13 @@
     min-width: 0;
   }
 
-  .app-shell__link small,
-  .app-shell__support a {
+  .app-shell__link small {
     font-size: 0.76rem;
     font-weight: 700;
   }
 
   .app-shell__link small {
     padding: 6px 10px;
-    border-radius: 999px;
-    background: var(--primary-soft);
-    color: var(--primary);
-  }
-
-  .app-shell__support a {
-    justify-self: start;
-    padding: 10px 12px;
     border-radius: 999px;
     background: var(--primary-soft);
     color: var(--primary);
@@ -622,10 +549,6 @@
 
     .app-shell__search {
       width: 100%;
-    }
-
-    .app-shell__workspace-stats {
-      grid-template-columns: 1fr;
     }
   }
 </style>

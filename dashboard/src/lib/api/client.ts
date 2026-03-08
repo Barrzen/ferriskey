@@ -22,15 +22,16 @@ export async function apiRequest<T>(input: {
   path: string;
   init?: RequestInit;
 }): Promise<T> {
+  const { headers: initHeaders, ...restInit } = input.init ?? {};
   const response = await input.fetcher(
     `${resolveApiBase(input.url)}${input.path}`,
     {
       credentials: 'include',
+      ...restInit,
       headers: {
         'Content-Type': 'application/json',
-        ...(input.init?.headers ?? {})
-      },
-      ...input.init
+        ...(initHeaders ?? {})
+      }
     }
   );
 

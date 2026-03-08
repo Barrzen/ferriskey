@@ -5,7 +5,11 @@ use crate::domain::{
         IdentityProviderRepository, entities::IdentityProviderPresentation,
     },
     authentication::value_objects::Identity,
-    client::{entities::ClientType, ports::ClientRepository, value_objects::CreateClientRequest},
+    client::{
+        entities::ClientType,
+        ports::ClientRepository,
+        value_objects::{CreateClientRequest, UpdateClientRequest},
+    },
     common::{
         entities::app_errors::CoreError,
         generate_random_string,
@@ -20,7 +24,9 @@ use crate::domain::{
         },
     },
     role::{
-        entities::permission::Permissions, ports::RoleRepository, value_objects::CreateRoleRequest,
+        entities::permission::Permissions,
+        ports::RoleRepository,
+        value_objects::{CreateRoleRequest, UpdateRoleRequest},
     },
     user::ports::{UserRepository, UserRoleRepository},
     webhook::{
@@ -243,6 +249,72 @@ where
                         mapper_type: mapper_type.to_string(),
                         config,
                     })
+                    .await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn sync_realm_access_artifacts(
+        &self,
+        previous_name: &str,
+        next_name: &str,
+    ) -> Result<(), CoreError> {
+        if previous_name == next_name {
+            return Ok(());
+        }
+
+        let master_realm = self
+            .realm_repository
+            .get_by_name("master".to_string())
+            .await?
+            .ok_or(CoreError::InvalidRealm)?;
+
+        let previous_system_client = format!("{previous_name}-realm");
+        let next_system_client = format!("{next_name}-realm");
+        let system_client = self
+            .client_repository
+            .get_by_client_id(previous_system_client.clone(), master_realm.id)
+            .await?;
+
+        let updated_client = self
+            .client_repository
+            .update_client(
+                system_client.id,
+                UpdateClientRequest {
+                    name: Some(next_system_client.clone()),
+                    client_id: Some(next_system_client.clone()),
+                    enabled: None,
+                    direct_access_grants_enabled: None,
+                },
+            )
+            .await?;
+
+        let previous_role_description = format!("role for manage realm {previous_name}");
+        let next_role_description = format!("role for manage realm {next_name}");
+        let linked_roles = self.role_repository.get_by_client_id(updated_client.id).await?;
+
+        for role in linked_roles {
+            let next_role_name = (role.name == previous_system_client)
+                .then_some(next_system_client.clone());
+            let next_description = role.description.as_ref().map(|description| {
+                if description == &previous_role_description {
+                    next_role_description.clone()
+                } else {
+                    description.clone()
+                }
+            });
+
+            if next_role_name.is_some() || next_description != role.description {
+                self.role_repository
+                    .update_by_id(
+                        role.id,
+                        UpdateRoleRequest {
+                            name: next_role_name,
+                            description: next_description,
+                        },
+                    )
                     .await?;
             }
         }
@@ -644,9 +716,15 @@ where
             "insufficient permissions",
         )?;
 
+        let previous_name = realm.name.clone();
+        let next_name = input.name.clone();
+
         let realm = self
             .realm_repository
             .update_realm(input.realm_name, input.name)
+            .await?;
+
+        self.sync_realm_access_artifacts(&previous_name, &next_name)
             .await?;
 
         self.webhook_repository
