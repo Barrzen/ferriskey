@@ -5,66 +5,74 @@
   color-scheme: light;
   font-family: 'Public Sans Variable', 'Public Sans', sans-serif;
   --font-display: 'DM Sans Variable', 'DM Sans', sans-serif;
-  --bg: #f4f6fb;
-  --bg-elevated: rgba(255, 255, 255, 0.82);
-  --bg-sidebar: rgba(255, 255, 255, 0.74);
-  --bg-inset: rgba(15, 23, 42, 0.04);
+  --bg: #f4f6f8;
+  --bg-elevated: #ffffff;
+  --bg-sidebar: rgba(255, 255, 255, 0.94);
+  --bg-inset: #f4f6f8;
   --surface: #ffffff;
-  --surface-strong: #f8fbff;
-  --border: rgba(15, 23, 42, 0.08);
-  --border-strong: rgba(15, 23, 42, 0.12);
-  --text: #162033;
-  --text-soft: #5a6478;
-  --text-muted: #8190a8;
+  --surface-strong: #f9fbfc;
+  --border: rgba(145, 158, 171, 0.2);
+  --border-strong: rgba(145, 158, 171, 0.32);
+  --text: #1c252e;
+  --text-soft: #637381;
+  --text-muted: #919eab;
   --primary: #2065d1;
-  --primary-soft: rgba(32, 101, 209, 0.14);
-  --success: #118d57;
-  --warning: #b76e00;
-  --danger: #c53452;
-  --shadow-lg: 0 20px 50px rgba(17, 24, 39, 0.08);
-  --shadow-md: 0 14px 32px rgba(17, 24, 39, 0.08);
-  --radius-xl: 28px;
-  --radius-lg: 22px;
-  --radius-md: 18px;
-  --radius-sm: 14px;
+  --primary-soft: rgba(32, 101, 209, 0.12);
+  --success: #22c55e;
+  --warning: #ffab00;
+  --danger: #ff5630;
+  --shadow-lg: 0 12px 24px -4px rgba(145, 158, 171, 0.12);
+  --shadow-md: 0 8px 16px -4px rgba(145, 158, 171, 0.16);
+  --radius-xl: 24px;
+  --radius-lg: 20px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
   --page-gradient:
     radial-gradient(
-      circle at top left,
-      rgba(32, 101, 209, 0.12),
-      transparent 30%
+      circle at top right,
+      rgba(32, 101, 209, 0.08),
+      transparent 24%
     ),
-    radial-gradient(circle at right, rgba(17, 141, 87, 0.1), transparent 24%),
-    linear-gradient(180deg, #f8fbff 0%, #f3f5fa 100%);
+    radial-gradient(
+      circle at bottom left,
+      rgba(0, 171, 85, 0.06),
+      transparent 20%
+    ),
+    linear-gradient(180deg, #f8fafc 0%, #f4f6f8 100%);
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0a1220;
-  --bg-elevated: rgba(12, 21, 37, 0.82);
-  --bg-sidebar: rgba(10, 18, 32, 0.82);
-  --bg-inset: rgba(148, 163, 184, 0.1);
-  --surface: #121b2c;
-  --surface-strong: #182235;
-  --border: rgba(148, 163, 184, 0.14);
-  --border-strong: rgba(148, 163, 184, 0.22);
-  --text: #f8fbff;
-  --text-soft: #c7d1df;
-  --text-muted: #8ea0b8;
-  --primary: #5c9cff;
-  --primary-soft: rgba(92, 156, 255, 0.18);
-  --success: #3dd598;
-  --warning: #ffb648;
-  --danger: #ff6b85;
-  --shadow-lg: 0 24px 56px rgba(2, 6, 23, 0.42);
-  --shadow-md: 0 16px 36px rgba(2, 6, 23, 0.38);
+  --bg: #161c24;
+  --bg-elevated: #212b36;
+  --bg-sidebar: rgba(22, 28, 36, 0.98);
+  --bg-inset: #161c24;
+  --surface: #212b36;
+  --surface-strong: #25303b;
+  --border: rgba(145, 158, 171, 0.14);
+  --border-strong: rgba(145, 158, 171, 0.24);
+  --text: #f9fafb;
+  --text-soft: #c4cdd5;
+  --text-muted: #7a8693;
+  --primary: #5f9dff;
+  --primary-soft: rgba(95, 157, 255, 0.18);
+  --success: #54d62c;
+  --warning: #ffd666;
+  --danger: #ff784b;
+  --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.42);
+  --shadow-md: 0 8px 16px -4px rgba(0, 0, 0, 0.3);
   --page-gradient:
     radial-gradient(
-      circle at top left,
-      rgba(92, 156, 255, 0.17),
-      transparent 34%
+      circle at top right,
+      rgba(95, 157, 255, 0.14),
+      transparent 24%
     ),
-    radial-gradient(circle at right, rgba(61, 213, 152, 0.12), transparent 24%),
-    linear-gradient(180deg, #09111f 0%, #0a1220 100%);
+    radial-gradient(
+      circle at bottom left,
+      rgba(84, 214, 44, 0.08),
+      transparent 20%
+    ),
+    linear-gradient(180deg, #161c24 0%, #11171f 100%);
 }
 
 html {
@@ -122,10 +130,10 @@ select {
   position: absolute;
   border-radius: 999px;
   pointer-events: none;
-  background: color-mix(in srgb, var(--primary) 28%, transparent);
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
   transform: scale(0);
   animation: ripple-wave 620ms ease-out forwards;
-  opacity: 0.8;
+  opacity: 0.9;
   will-change: transform, opacity;
   contain: strict;
 }
@@ -139,11 +147,10 @@ select {
 
 .page-shell {
   min-height: 100vh;
-  padding: 24px;
+  padding: 16px;
 }
 
 .glass-panel {
-  backdrop-filter: blur(18px);
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
@@ -160,11 +167,12 @@ select {
   height: 8px;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 18%, transparent);
+  box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 14%, transparent);
+  flex: none;
 }
 
 @media (max-width: 900px) {
   .page-shell {
-    padding: 16px;
+    padding: 12px;
   }
 }

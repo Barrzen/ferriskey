@@ -1,97 +1,130 @@
 <script lang="ts">
-  import { page } from '$app/state';
   import {
     Activity,
     ArrowUpRight,
+    BadgeCheck,
     ShieldCheck,
     UserRoundCheck,
     Waypoints
   } from 'lucide-svelte';
+  import { page } from '$app/state';
   import MetricCard from '$components/MetricCard.svelte';
   import RingGauge from '$components/RingGauge.svelte';
   import TrendAreaChart from '$components/TrendAreaChart.svelte';
   import { ripple } from '$utils/ripple';
 
   const currentRealm = String(page.params.realm ?? 'master');
-  const authTraffic = [18, 24, 21, 29, 32, 26, 34, 39, 36, 44, 48, 46, 52, 54];
-
-  const queueRows = [
+  const weeklyTraffic = [
+    18, 26, 24, 31, 35, 29, 38, 42, 39, 46, 51, 49, 54, 58
+  ];
+  const downloadBars = [76, 58, 91, 66, 84, 72, 95];
+  const sourceRows = [
+    { label: 'Direct sign-in', value: '38%', tone: 'var(--primary)' },
+    { label: 'Social login', value: '26%', tone: 'var(--success)' },
+    { label: 'Magic links', value: '18%', tone: 'var(--warning)' },
+    { label: 'Service accounts', value: '18%', tone: 'var(--text-muted)' }
+  ];
+  const moduleRows = [
     {
-      name: 'Realm login hardening',
-      owner: 'Security',
+      name: 'Users workspace',
       progress: '92%',
-      status: 'Ready for rollout'
+      health: 'Stable',
+      tone: 'var(--success)'
     },
     {
-      name: 'User import from HRIS',
-      owner: 'Automation',
-      progress: '68%',
-      status: 'Sync in progress'
+      name: 'Clients and scopes',
+      progress: '74%',
+      health: 'In progress',
+      tone: 'var(--primary)'
     },
     {
-      name: 'Client secret rotation',
-      owner: 'Platform',
-      progress: '51%',
-      status: 'Waiting approval'
+      name: 'Security analytics',
+      progress: '61%',
+      health: 'Reviewing',
+      tone: 'var(--warning)'
     },
     {
-      name: 'TOTP adoption campaign',
-      owner: 'IAM',
-      progress: '34%',
-      status: 'Drafting notices'
+      name: 'Provider federation',
+      progress: '48%',
+      health: 'Queued',
+      tone: 'var(--text-muted)'
     }
   ];
-
-  const events = [
+  const activityRows = [
     {
-      tone: 'var(--success)',
-      title: '2,341 passwordless sign-ins',
-      meta: 'Healthy conversion in the last 24 hours'
+      title: 'Bulk invitation campaign completed',
+      meta: '2 minutes ago',
+      tone: 'var(--success)'
     },
     {
-      tone: 'var(--warning)',
-      title: '12 stale service accounts',
-      meta: 'Rotation due within the next 3 days'
+      title: 'Client secret rotation requested',
+      meta: '16 minutes ago',
+      tone: 'var(--primary)'
     },
     {
-      tone: 'var(--danger)',
-      title: '4 brute-force spikes blocked',
-      meta: 'All mitigated by realm policy'
+      title: 'Blocked 4 password spray attempts',
+      meta: '28 minutes ago',
+      tone: 'var(--danger)'
+    },
+    {
+      title: 'New LDAP sync dry run finished',
+      meta: '51 minutes ago',
+      tone: 'var(--warning)'
     }
   ];
 </script>
 
 <div class="overview grid-auto">
   <section class="overview__hero glass-panel">
-    <div>
+    <div class="overview__hero-copy">
       <div class="overview__eyebrow">
         <span class="status-dot"></span>
-        Realm posture is healthy
+        Barrzen Minimal Design
       </div>
-      <h2>Minimal polish for identity operations.</h2>
+      <h2>Operate identity at a glance, without losing depth.</h2>
       <p>
-        This new dashboard is built as a first-class SvelteKit app, keeping
-        realm-aware workflows while improving clarity, depth, motion, and dark
-        mode behavior.
+        This overview now follows the Barrzen Minimal dashboard direction:
+        quieter surfaces, sharper hierarchy, cleaner density, and clearer
+        pathways into realm operations.
       </p>
+
+      <div class="overview__hero-actions">
+        <a
+          href={`/realms/${currentRealm}/users`}
+          class="overview__cta overview__cta--primary"
+          use:ripple
+        >
+          Open users
+          <ArrowUpRight size={16} />
+        </a>
+        <a
+          href={`/realms/${currentRealm}/authentication/login`}
+          class="overview__cta"
+          use:ripple
+        >
+          Preview login
+        </a>
+      </div>
     </div>
 
-    <div class="overview__actions">
-      <a
-        href={`/realms/${currentRealm}/users`}
-        class="overview__cta overview__cta--primary"
-        use:ripple
-      >
-        Open users
-        <ArrowUpRight size={16} />
-      </a>
-      <a
-        href={`/realms/${currentRealm}/authentication/login`}
-        class="overview__cta"
-        use:ripple
-      >
-        Preview login
-      </a>
+    <div class="overview__hero-panel">
+      <p>Weekly sales</p>
+      <strong>$31,480</strong>
+      <span>+18.4% compared with last week</span>
+      <div class="overview__hero-kpis">
+        <div>
+          <small>Auth success</small>
+          <strong>92.7%</strong>
+        </div>
+        <div>
+          <small>MFA adoption</small>
+          <strong>84.1%</strong>
+        </div>
+        <div>
+          <small>Incidents</small>
+          <strong>04</strong>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -100,7 +133,7 @@
       title="Active identities"
       value="18,426"
       delta="+8.4%"
-      meta="from the last 7 days"
+      meta="compared with last week"
     >
       {#snippet icon()}<UserRoundCheck size={24} strokeWidth={2.2} />{/snippet}
     </MetricCard>
@@ -108,7 +141,7 @@
       title="Successful sign-ins"
       value="92.7%"
       delta="+1.6%"
-      meta="improved this week"
+      meta="security posture improving"
       tone="success"
     >
       {#snippet icon()}<ShieldCheck size={24} strokeWidth={2.2} />{/snippet}
@@ -117,7 +150,7 @@
       title="Threat events blocked"
       value="148"
       delta="+12.1%"
-      meta="rate-limits and lockouts"
+      meta="password spray and token abuse"
       tone="warning"
     >
       {#snippet icon()}<Activity size={24} strokeWidth={2.2} />{/snippet}
@@ -126,7 +159,7 @@
       title="Flow revisions"
       value="29"
       delta="+4.0%"
-      meta="Compass changes staged"
+      meta="staged in Compass"
       tone="primary"
     >
       {#snippet icon()}<Waypoints size={24} strokeWidth={2.2} />{/snippet}
@@ -134,100 +167,128 @@
   </section>
 
   <section class="overview__content">
-    <article class="overview__chart glass-panel">
+    <article class="overview__card glass-panel">
       <div class="overview__section-head">
         <div>
-          <p>Authentication traffic</p>
-          <h3>Requests are trending up, without increasing risk.</h3>
+          <p>Website visits</p>
+          <h3>Authentication traffic keeps rising with controlled risk.</h3>
         </div>
-        <strong>54k / hour</strong>
+        <strong>58k</strong>
       </div>
 
-      <TrendAreaChart points={authTraffic} />
+      <TrendAreaChart points={weeklyTraffic} />
 
       <div class="overview__legend">
-        <div><span></span>Interactive logins</div>
-        <div><span></span>SSO continuation</div>
-        <div><span></span>Service accounts</div>
+        <div><span style="color: var(--primary)"></span>Interactive users</div>
+        <div><span style="color: var(--success)"></span>SSO completions</div>
+        <div><span style="color: var(--warning)"></span>Bot mitigation</div>
       </div>
     </article>
 
-    <article class="overview__gauges glass-panel">
-      <div class="overview__section-head">
-        <div>
-          <p>Realm reliability</p>
-          <h3>Operational posture at a glance</h3>
+    <div class="overview__stack">
+      <article class="overview__card glass-panel">
+        <div class="overview__section-head overview__section-head--compact">
+          <div>
+            <p>Current visits</p>
+            <h3>Sign-in mix</h3>
+          </div>
         </div>
-      </div>
 
-      <div class="overview__gauge-grid">
-        <RingGauge
-          value={97}
-          label="Availability"
-          meta="No auth outage in the last 30 days"
-        />
-        <RingGauge
-          value={84}
-          label="MFA adoption"
-          meta="Recovery codes issued for 71% of enrolled users"
-          color="var(--success)"
-        />
-        <RingGauge
-          value={63}
-          label="Automation"
-          meta="Client provisioning flows still moving to the new UI"
-          color="var(--warning)"
-        />
-      </div>
-    </article>
+        <div class="overview__gauges">
+          <RingGauge
+            value={57}
+            label="Desktop"
+            meta="still the primary admin surface"
+          />
+          <RingGauge
+            value={31}
+            label="Mobile"
+            meta="realm admins on the move"
+            color="var(--success)"
+          />
+          <RingGauge
+            value={12}
+            label="API"
+            meta="service accounts and jobs"
+            color="var(--warning)"
+          />
+        </div>
+      </article>
+
+      <article class="overview__card glass-panel">
+        <div class="overview__section-head overview__section-head--compact">
+          <div>
+            <p>Traffic by source</p>
+            <h3>Current download</h3>
+          </div>
+        </div>
+
+        <div class="overview__sources">
+          {#each sourceRows as row (row.label)}
+            <div>
+              <div>
+                <span class="overview__source-dot" style={`color:${row.tone}`}
+                ></span>
+                <strong>{row.label}</strong>
+              </div>
+              <small>{row.value}</small>
+            </div>
+          {/each}
+        </div>
+
+        <div class="overview__bars">
+          {#each downloadBars as bar, index (`${bar}-${index}`)}
+            <span style={`height:${bar}%`}></span>
+          {/each}
+        </div>
+      </article>
+    </div>
   </section>
 
-  <section class="overview__tables">
-    <article class="glass-panel overview__table-card">
+  <section class="overview__content overview__content--bottom">
+    <article class="overview__card glass-panel">
       <div class="overview__section-head">
         <div>
-          <p>Delivery queue</p>
-          <h3>Migration work tracked in the dashboard itself</h3>
+          <p>Migration health</p>
+          <h3>Core dashboard modules moving into the new design system.</h3>
         </div>
+        <BadgeCheck size={20} color="var(--primary)" />
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Task</th>
-            <th>Owner</th>
-            <th>Progress</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each queueRows as row}
-            <tr>
-              <td>{row.name}</td>
-              <td>{row.owner}</td>
-              <td>{row.progress}</td>
-              <td>{row.status}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+      <div class="overview__table">
+        {#each moduleRows as row (row.name)}
+          <div class="overview__table-row">
+            <div>
+              <strong>{row.name}</strong>
+              <span>{row.health}</span>
+            </div>
+            <div class="overview__progress">
+              <small>{row.progress}</small>
+              <div>
+                <span style={`width:${row.progress}; background:${row.tone}`}
+                ></span>
+              </div>
+            </div>
+          </div>
+        {/each}
+      </div>
     </article>
 
-    <article class="glass-panel overview__events-card">
+    <article class="overview__card glass-panel">
       <div class="overview__section-head">
         <div>
-          <p>SeaWatch signal</p>
-          <h3>Priority events worth attention</h3>
+          <p>Order timeline</p>
+          <h3>Latest realm and security activity.</h3>
         </div>
       </div>
 
-      <div class="overview__events">
-        {#each events as event}
+      <div class="overview__timeline">
+        {#each activityRows as item (item.title)}
           <section>
-            <div class="status-dot" style={`color:${event.tone}`}></div>
+            <span class="status-dot" style={`color:${item.tone}`}></span>
             <div>
-              <strong>{event.title}</strong>
-              <p>{event.meta}</p>
+              <strong>{item.title}</strong>
+              <p>{item.meta}</p>
             </div>
           </section>
         {/each}
@@ -238,47 +299,40 @@
 
 <style>
   .overview__hero,
-  .overview__chart,
-  .overview__gauges,
-  .overview__table-card,
-  .overview__events-card {
-    padding: 26px;
+  .overview__card {
+    padding: 24px;
   }
 
   .overview__hero {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.7fr);
     gap: 24px;
-    align-items: flex-end;
-    background:
-      radial-gradient(
-        circle at top right,
-        color-mix(in srgb, var(--primary) 20%, transparent),
-        transparent 28%
-      ),
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--surface) 92%, transparent),
-        color-mix(in srgb, var(--surface-strong) 80%, transparent)
-      );
+    align-items: stretch;
+  }
+
+  .overview__hero-copy,
+  .overview__hero-panel,
+  .overview__stack {
+    display: grid;
+    gap: 16px;
   }
 
   .overview__eyebrow {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 14px;
+    padding: 9px 14px;
     border-radius: 999px;
     background: var(--primary-soft);
     color: var(--primary);
-    font-size: 0.92rem;
+    font-size: 0.86rem;
     font-weight: 700;
+    justify-self: start;
   }
 
   h2 {
-    max-width: 620px;
-    margin: 18px 0 12px;
-    font: 700 clamp(2.2rem, 4vw, 3.7rem)/0.95 var(--font-display);
+    margin: 0;
+    font: 700 clamp(2.1rem, 5vw, 3.6rem)/0.96 var(--font-display);
     letter-spacing: -0.06em;
   }
 
@@ -288,153 +342,232 @@
     line-height: 1.7;
   }
 
-  .overview__actions {
+  .overview__hero-actions {
     display: flex;
-    gap: 12px;
     flex-wrap: wrap;
+    gap: 12px;
   }
 
   .overview__cta {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    padding: 15px 18px;
-    border-radius: 18px;
+    padding: 14px 18px;
+    border-radius: 16px;
     background: var(--surface);
     border: 1px solid var(--border);
-    font-weight: 700;
     box-shadow: var(--shadow-md);
+    font-weight: 700;
   }
 
   .overview__cta--primary {
     background: var(--primary);
-    color: white;
     border-color: transparent;
+    color: white;
   }
 
-  .overview__metrics,
-  .overview__content,
-  .overview__tables {
+  .overview__hero-panel {
+    padding: 20px;
+    border-radius: 20px;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary) 12%, var(--surface)) 0%,
+      var(--surface) 100%
+    );
+    border: 1px solid var(--border);
+  }
+
+  .overview__hero-panel p,
+  .overview__section-head p {
+    font-size: 0.86rem;
+  }
+
+  .overview__hero-panel strong,
+  .overview__section-head strong,
+  h3 {
+    font: 700 1.45rem/1.06 var(--font-display);
+    letter-spacing: -0.04em;
+  }
+
+  .overview__hero-panel > strong {
+    font-size: 2.4rem;
+  }
+
+  .overview__hero-panel > span {
+    color: var(--success);
+    font-size: 0.92rem;
+    font-weight: 700;
+  }
+
+  .overview__hero-kpis {
     display: grid;
-    gap: 24px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .overview__hero-kpis div {
+    padding: 14px;
+    border-radius: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .overview__hero-kpis small,
+  .overview__table-row span,
+  .overview__progress small,
+  .overview__sources small {
+    color: var(--text-muted);
   }
 
   .overview__metrics {
+    display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 24px;
   }
 
   .overview__content {
-    grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.86fr);
+    gap: 24px;
   }
 
-  .overview__tables {
-    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  .overview__content--bottom {
+    grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
   }
 
   .overview__section-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 18px;
-    margin-bottom: 24px;
+    gap: 16px;
+    margin-bottom: 20px;
   }
 
-  .overview__section-head p {
-    font-size: 0.9rem;
+  .overview__section-head--compact {
+    margin-bottom: 16px;
   }
 
-  h3,
   .overview__section-head strong {
-    margin: 4px 0 0;
-    font: 700 1.35rem/1.1 var(--font-display);
-    letter-spacing: -0.04em;
+    font-size: 1.2rem;
   }
 
   .overview__legend,
-  .overview__gauge-grid,
-  .overview__events {
+  .overview__sources,
+  .overview__gauges,
+  .overview__timeline,
+  .overview__table {
     display: grid;
     gap: 16px;
   }
 
   .overview__legend {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    font-size: 0.92rem;
+    font-size: 0.9rem;
     color: var(--text-soft);
   }
 
-  .overview__legend div {
+  .overview__legend div,
+  .overview__sources > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .overview__legend span,
+  .overview__source-dot {
+    display: inline-flex;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 18%, transparent);
+    margin-right: 8px;
+  }
+
+  .overview__sources > div {
+    padding: 14px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+
+  .overview__sources > div:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .overview__sources > div > div {
     display: flex;
     align-items: center;
-    gap: 10px;
   }
 
-  .overview__legend span {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--primary);
+  .overview__bars {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    align-items: end;
+    gap: 8px;
+    height: 120px;
+    padding-top: 8px;
   }
 
-  .overview__legend div:nth-child(2) span {
-    background: var(--success);
+  .overview__bars span {
+    border-radius: 999px 999px 10px 10px;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary) 62%, white),
+      var(--primary)
+    );
   }
 
-  .overview__legend div:nth-child(3) span {
-    background: var(--warning);
-  }
-
-  .overview__gauge-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  th,
-  td {
-    padding: 14px 0;
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-  }
-
-  th {
-    color: var(--text-muted);
-    font-size: 0.82rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
-  td {
-    color: var(--text-soft);
-  }
-
-  td:first-child {
-    color: var(--text);
-    font-weight: 700;
-  }
-
-  .overview__events section {
-    display: flex;
-    gap: 14px;
-    padding: 18px;
+  .overview__table-row,
+  .overview__timeline section {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
     border-radius: 18px;
     background: var(--bg-inset);
     border: 1px solid var(--border);
   }
 
-  .overview__events strong {
+  .overview__table-row {
+    grid-template-columns: minmax(0, 1fr) 180px;
+    align-items: center;
+  }
+
+  .overview__table-row strong,
+  .overview__timeline strong {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
+  }
+
+  .overview__progress {
+    display: grid;
+    gap: 8px;
+  }
+
+  .overview__progress div {
+    height: 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--text-muted) 16%, transparent);
+    overflow: hidden;
+  }
+
+  .overview__progress span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+  }
+
+  .overview__timeline section {
+    grid-template-columns: auto 1fr;
+    align-items: start;
   }
 
   @media (max-width: 1200px) {
+    .overview__hero,
     .overview__metrics,
     .overview__content,
-    .overview__tables,
-    .overview__gauge-grid {
+    .overview__content--bottom,
+    .overview__hero-kpis {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
@@ -443,20 +576,17 @@
     .overview__hero,
     .overview__metrics,
     .overview__content,
-    .overview__tables,
-    .overview__gauge-grid,
-    .overview__legend {
+    .overview__content--bottom,
+    .overview__hero-kpis,
+    .overview__gauges,
+    .overview__legend,
+    .overview__table-row {
       grid-template-columns: 1fr;
     }
 
-    .overview__hero {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-
-    table {
-      display: block;
-      overflow-x: auto;
+    .overview__hero,
+    .overview__card {
+      padding: 18px;
     }
   }
 </style>

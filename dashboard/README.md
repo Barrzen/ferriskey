@@ -1,42 +1,36 @@
-# sv
+# Barrzen Minimal Dashboard
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+This is the new first-class frontend for the Ferriskey admin experience, built in `dashboard/` with SvelteKit SSR.
 
-## Creating a project
+## Goals
 
-If you're seeing this, you've probably already done this step. Congrats!
+- match the Barrzen Minimal Design direction closely
+- replace the legacy React frontend incrementally, not immediately
+- keep realm-aware IAM workflows while improving layout, theming, and consistency
 
-```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
+## Commands
 
 ```sh
-# recreate this project
-npx sv@0.12.5 create --template minimal --types ts --no-install dashboard
+pnpm install
+pnpm run dev
+pnpm run check
+pnpm run lint
+pnpm run test
+pnpm run build
 ```
 
-## Developing
+## API Client Generation
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Generate a fresh OpenAPI spec from the backend first:
 
 ```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+cd ../api
+cargo run --bin ferriskey-api -- gen-api --output ../openapi.json
+cd ../dashboard
 ```
 
-## Building
-
-To create a production version of your app:
+Then generate the typed client:
 
 ```sh
-npm run build
+pnpm run generate:api
 ```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.

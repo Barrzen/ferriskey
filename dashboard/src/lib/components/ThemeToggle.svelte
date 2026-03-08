@@ -12,10 +12,11 @@
     ];
 
   let theme = $state<ThemeMode>('system');
+  const THEME_KEY = 'barrzen-dashboard-theme';
 
   function applyTheme(nextTheme: ThemeMode) {
     theme = nextTheme;
-    localStorage.setItem('ferriskey-dashboard-theme', nextTheme);
+    localStorage.setItem(THEME_KEY, nextTheme);
 
     const resolved =
       nextTheme === 'system'
@@ -28,9 +29,7 @@
   }
 
   $effect(() => {
-    const storedTheme = localStorage.getItem(
-      'ferriskey-dashboard-theme'
-    ) as ThemeMode | null;
+    const storedTheme = localStorage.getItem(THEME_KEY) as ThemeMode | null;
     applyTheme(storedTheme ?? 'system');
 
     const media = window.matchMedia('(prefers-color-scheme: dark)');

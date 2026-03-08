@@ -1,7 +1,15 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { Bell, ChevronDown, Menu, Search, Sparkles } from 'lucide-svelte';
-  import BrandMark from '$components/BrandMark.svelte';
+  import {
+    Bell,
+    ChevronDown,
+    LifeBuoy,
+    Menu,
+    Search,
+    Sparkles,
+    Zap
+  } from 'lucide-svelte';
+  import BrandLogo from '$components/BrandLogo.svelte';
   import ThemeToggle from '$components/ThemeToggle.svelte';
   import { navigationGroups } from '$config/navigation';
   import { ripple } from '$utils/ripple';
@@ -14,8 +22,19 @@
   let sidebarOpen = $state(false);
 
   const breadcrumbs = $derived.by(() =>
-    page.url.pathname.split('/').filter(Boolean).slice(2)
+    page.url.pathname
+      .split('/')
+      .filter(Boolean)
+      .slice(2)
+      .map((crumb) => crumb.replaceAll('-', ' '))
   );
+
+  const activeTitle = $derived(breadcrumbs.at(-1) ?? 'overview');
+  const teamHighlights = [
+    { label: 'Team', value: 'Barrzen Core' },
+    { label: 'Plan', value: 'Enterprise' },
+    { label: 'Sync', value: 'Live' }
+  ];
 
   function isActive(href: string) {
     return (
@@ -38,26 +57,42 @@
       class:app-shell__sidebar--open={sidebarOpen}
       class="app-shell__sidebar"
     >
-      <div class="app-shell__brand">
-        <div class="app-shell__brand-row">
-          <BrandMark />
-          <div>
-            <strong>FerrisKey</strong>
-            <span>Dashboard preview</span>
-          </div>
-        </div>
+      <div class="app-shell__brand-block">
+        <BrandLogo />
         <button type="button" class="app-shell__realm-switch" use:ripple>
-          <span>{realm}</span>
+          <div>
+            <small>Workspace</small>
+            <strong>{realm}</strong>
+          </div>
           <ChevronDown size={16} />
         </button>
       </div>
 
+      <div class="app-shell__workspace glass-panel">
+        <div class="app-shell__workspace-icon"><Zap size={18} /></div>
+        <div>
+          <strong>Barrzen Minimal</strong>
+          <p>
+            Design-accurate admin shell with dark mode, ripple feedback, and
+            cleaner navigation states.
+          </p>
+        </div>
+        <div class="app-shell__workspace-stats">
+          {#each teamHighlights as item (item.label)}
+            <div>
+              <small>{item.label}</small>
+              <strong>{item.value}</strong>
+            </div>
+          {/each}
+        </div>
+      </div>
+
       <nav class="app-shell__nav" aria-label="Dashboard navigation">
-        {#each navigationGroups as group}
+        {#each navigationGroups as group (group.title)}
           <section>
             <p>{group.title}</p>
             <div>
-              {#each group.items as item}
+              {#each group.items as item (item.title)}
                 <a
                   href={item.href(realm)}
                   class:app-shell__link--active={isActive(item.href(realm))}
@@ -67,7 +102,7 @@
                   <div class="app-shell__link-icon">
                     <item.icon size={18} />
                   </div>
-                  <div>
+                  <div class="app-shell__link-copy">
                     <strong>{item.title}</strong>
                     <span>{item.description}</span>
                   </div>
@@ -81,13 +116,18 @@
         {/each}
       </nav>
 
-      <div class="app-shell__promo">
-        <div class="app-shell__promo-icon"><Sparkles size={18} /></div>
-        <strong>Minimal-inspired rebuild</strong>
-        <p>
-          SSR-ready SvelteKit foundation with dark mode, ripple feedback, and
-          realm-aware routing.
-        </p>
+      <div class="app-shell__support">
+        <div class="app-shell__support-icon"><LifeBuoy size={18} /></div>
+        <div>
+          <strong>Need design support?</strong>
+          <p>
+            Keep the replacement dashboard aligned with Barrzen Minimal Design
+            while modules migrate from the legacy app.
+          </p>
+        </div>
+        <a href="https://barrzen.com" target="_blank" rel="noreferrer"
+          >Barrzen.com</a
+        >
       </div>
     </aside>
 
@@ -102,16 +142,19 @@
           >
             <Menu size={18} />
           </button>
-
           <div>
             <div class="app-shell__breadcrumbs">
-              <span>Realms</span>
-              {#each breadcrumbs as crumb}
+              <span>dashboard</span>
+              {#each breadcrumbs as crumb, index (crumb + index)}
                 <span>/</span>
-                <strong>{crumb.replaceAll('-', ' ')}</strong>
+                <strong>{crumb}</strong>
               {/each}
             </div>
-            <h1>{breadcrumbs.at(-1)?.replaceAll('-', ' ') ?? 'Overview'}</h1>
+            <h1>{activeTitle}</h1>
+            <p>
+              Minimal Design layout tuned for Barrzen branding and Ferriskey
+              realm operations.
+            </p>
           </div>
         </div>
 
@@ -120,7 +163,7 @@
             <Search size={18} />
             <input
               type="search"
-              placeholder="Search users, clients, flows..."
+              placeholder="Search users, clients, events..."
             />
           </label>
           <ThemeToggle />
@@ -131,6 +174,13 @@
             use:ripple
           >
             <Bell size={18} />
+          </button>
+          <button type="button" class="app-shell__profile" use:ripple>
+            <span class="app-shell__avatar">BZ</span>
+            <div>
+              <strong>Barrzen</strong>
+              <small>Product team</small>
+            </div>
           </button>
         </div>
       </header>
@@ -144,47 +194,30 @@
   .app-shell {
     display: grid;
     grid-template-columns: 320px minmax(0, 1fr);
-    min-height: calc(100vh - 48px);
+    min-height: calc(100vh - 32px);
     overflow: hidden;
   }
 
   .app-shell__sidebar {
     display: grid;
-    gap: 28px;
-    padding: 28px;
+    align-content: start;
+    gap: 22px;
+    padding: 20px;
     background: var(--bg-sidebar);
     border-right: 1px solid var(--border);
   }
 
-  .app-shell__brand,
-  .app-shell__promo {
+  .app-shell__brand-block,
+  .app-shell__workspace,
+  .app-shell__support {
     display: grid;
-    gap: 18px;
-  }
-
-  .app-shell__brand-row {
-    display: flex;
-    align-items: center;
     gap: 14px;
   }
 
-  .app-shell__brand-row strong,
-  .app-shell__link strong,
-  .app-shell__promo strong {
-    display: block;
-  }
-
-  .app-shell__brand-row span,
-  .app-shell__link span,
-  .app-shell__promo p,
-  .app-shell__nav p,
-  .app-shell__breadcrumbs {
-    color: var(--text-muted);
-  }
-
   .app-shell__realm-switch,
+  .app-shell__menu,
   .app-shell__icon-button,
-  .app-shell__menu {
+  .app-shell__profile {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -202,10 +235,84 @@
     border-radius: 18px;
   }
 
+  .app-shell__realm-switch small,
+  .app-shell__breadcrumbs,
+  .app-shell__header-main p,
+  .app-shell__search,
+  .app-shell__support p,
+  .app-shell__workspace p,
+  .app-shell__workspace-stats small,
+  .app-shell__link span,
+  .app-shell__nav p,
+  .app-shell__profile small {
+    color: var(--text-muted);
+  }
+
+  .app-shell__workspace,
+  .app-shell__support {
+    padding: 18px;
+    border-radius: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+  }
+
+  .app-shell__workspace-icon,
+  .app-shell__support-icon,
+  .app-shell__link-icon,
+  .app-shell__avatar,
+  .app-shell__icon-button,
+  .app-shell__menu {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+  }
+
+  .app-shell__workspace-icon,
+  .app-shell__support-icon,
+  .app-shell__link-icon,
+  .app-shell__avatar {
+    background: var(--primary-soft);
+    color: var(--primary);
+    font-weight: 800;
+  }
+
+  .app-shell__workspace strong,
+  .app-shell__support strong,
+  .app-shell__link strong,
+  .app-shell__profile strong {
+    display: block;
+  }
+
+  .app-shell__workspace p,
+  .app-shell__support p,
+  .app-shell__link span {
+    margin: 4px 0 0;
+    font-size: 0.86rem;
+    line-height: 1.6;
+  }
+
+  .app-shell__workspace-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .app-shell__workspace-stats div {
+    padding: 12px;
+    border-radius: 16px;
+    background: var(--bg-inset);
+  }
+
+  .app-shell__workspace-stats strong {
+    font-size: 0.92rem;
+  }
+
   .app-shell__nav {
     display: grid;
-    gap: 20px;
-    align-content: start;
+    gap: 18px;
   }
 
   .app-shell__nav section {
@@ -215,36 +322,36 @@
 
   .app-shell__nav p {
     margin: 0;
-    padding-left: 12px;
-    font-size: 0.82rem;
+    padding-left: 10px;
+    font-size: 0.78rem;
     font-weight: 700;
-    text-transform: uppercase;
     letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
-  .app-shell__nav section div {
+  .app-shell__nav section > div {
     display: grid;
-    gap: 8px;
+    gap: 6px;
   }
 
   .app-shell__link {
     display: grid;
     grid-template-columns: auto 1fr auto;
-    gap: 14px;
     align-items: center;
-    padding: 14px;
-    border-radius: 20px;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
     border: 1px solid transparent;
     transition:
-      transform 180ms ease,
       background 180ms ease,
+      transform 180ms ease,
       border-color 180ms ease;
   }
 
   .app-shell__link:hover {
-    transform: translateX(2px);
-    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    background: var(--surface);
     border-color: var(--border);
+    transform: translateX(2px);
   }
 
   .app-shell__link--active {
@@ -253,49 +360,29 @@
     box-shadow: var(--shadow-md);
   }
 
-  .app-shell__link-icon,
-  .app-shell__promo-icon,
-  .app-shell__icon-button,
-  .app-shell__menu {
-    width: 42px;
-    height: 42px;
-    border-radius: 16px;
+  .app-shell__link-copy {
+    min-width: 0;
   }
 
-  .app-shell__link-icon,
-  .app-shell__promo-icon {
-    display: grid;
-    place-items: center;
-    background: var(--bg-inset);
-    color: var(--primary);
-  }
-
-  .app-shell__link span,
-  .app-shell__promo p {
-    font-size: 0.88rem;
-    line-height: 1.55;
-    margin: 4px 0 0;
-  }
-
-  .app-shell__link small {
-    padding: 7px 10px;
-    border-radius: 999px;
-    background: var(--primary-soft);
-    color: var(--primary);
-    font-size: 0.75rem;
+  .app-shell__link small,
+  .app-shell__support a {
+    font-size: 0.76rem;
     font-weight: 700;
   }
 
-  .app-shell__promo {
-    padding: 20px;
-    align-self: end;
-    border-radius: 24px;
-    background: linear-gradient(
-      155deg,
-      color-mix(in srgb, var(--primary) 14%, var(--surface)) 0%,
-      var(--surface) 100%
-    );
-    border: 1px solid var(--border);
+  .app-shell__link small {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--primary-soft);
+    color: var(--primary);
+  }
+
+  .app-shell__support a {
+    justify-self: start;
+    padding: 10px 12px;
+    border-radius: 999px;
+    background: var(--primary-soft);
+    color: var(--primary);
   }
 
   .app-shell__main {
@@ -307,55 +394,69 @@
   .app-shell__header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 20px;
-    padding: 28px 30px 16px;
+    padding: 24px 28px 14px;
   }
 
   .app-shell__header-main,
   .app-shell__header-actions {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
   }
 
   .app-shell__breadcrumbs {
     display: flex;
     gap: 8px;
-    font-size: 0.88rem;
+    font-size: 0.82rem;
     text-transform: capitalize;
   }
 
   h1 {
-    margin: 8px 0 0;
-    font: 700 clamp(1.8rem, 4vw, 2.6rem)/1 var(--font-display);
+    margin: 8px 0 4px;
+    font: 700 clamp(1.9rem, 4vw, 2.6rem)/1 var(--font-display);
     letter-spacing: -0.05em;
     text-transform: capitalize;
+  }
+
+  .app-shell__header-main p {
+    margin: 0;
+    font-size: 0.92rem;
   }
 
   .app-shell__search {
     display: flex;
     align-items: center;
     gap: 10px;
-    width: min(320px, 42vw);
+    width: min(340px, 42vw);
     padding: 13px 16px;
-    border-radius: 18px;
+    border-radius: 16px;
     background: var(--surface);
     border: 1px solid var(--border);
     box-shadow: var(--shadow-md);
-    color: var(--text-muted);
   }
 
   .app-shell__search input {
     width: 100%;
     border: 0;
-    outline: 0;
     background: transparent;
     color: var(--text);
+    outline: 0;
+  }
+
+  .app-shell__profile {
+    padding: 6px 14px 6px 6px;
+    border-radius: 16px;
+  }
+
+  .app-shell__profile div {
+    display: grid;
+    text-align: left;
   }
 
   .app-shell__content {
-    padding: 12px 30px 30px;
+    padding: 10px 28px 28px;
   }
 
   .app-shell__menu,
@@ -367,7 +468,7 @@
     position: fixed;
     inset: 0;
     z-index: 39;
-    background: rgba(2, 6, 23, 0.4);
+    background: rgba(22, 28, 36, 0.48);
     border: 0;
   }
 
@@ -378,12 +479,12 @@
 
     .app-shell__sidebar {
       position: fixed;
-      inset: 16px auto 16px 16px;
-      width: min(320px, calc(100vw - 32px));
+      inset: 12px auto 12px 12px;
+      width: min(320px, calc(100vw - 24px));
       z-index: 40;
       transform: translateX(-110%);
       transition: transform 220ms ease;
-      border-radius: 32px;
+      border-radius: 24px;
       box-shadow: var(--shadow-lg);
     }
 
@@ -400,12 +501,11 @@
   @media (max-width: 900px) {
     .app-shell__header,
     .app-shell__content {
-      padding-left: 18px;
-      padding-right: 18px;
+      padding-left: 16px;
+      padding-right: 16px;
     }
 
     .app-shell__header {
-      align-items: flex-start;
       flex-direction: column;
     }
 
@@ -416,6 +516,10 @@
 
     .app-shell__search {
       width: 100%;
+    }
+
+    .app-shell__workspace-stats {
+      grid-template-columns: 1fr;
     }
   }
 </style>
