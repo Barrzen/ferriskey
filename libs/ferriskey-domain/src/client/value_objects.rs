@@ -39,11 +39,12 @@ impl CreateClientRequest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UpdateClientRequest {
     pub name: Option<String>,
     pub client_id: Option<String>,
     pub enabled: Option<bool>,
+    pub service_account_enabled: Option<bool>,
     pub direct_access_grants_enabled: Option<bool>,
     pub oauth_device_code_grant_enabled: Option<bool>,
     pub access_token_lifetime: Option<i64>,

@@ -234,6 +234,46 @@ mod tests {
 
     #[tokio::test]
     #[ignore]
+    async fn bootstrap_backfills_platform_operator_on_existing_realm() {
+        let ctx = setup().await;
+        let admin_token = get_admin_token(&ctx).await;
+        let tenant = format!("legacy-{}", Uuid::new_v4().simple());
+
+        // Create realm only (no bootstrap clients).
+        let create = ctx
+            .server
+            .post("/realms")
+            .add_header("Authorization", auth_header(&admin_token))
+            .json(&json!({ "realm_name": tenant }))
+            .await;
+        assert_eq!(create.status_code(), 201, "create realm: {}", create.text());
+
+        // Bootstrap/import on existing realm must succeed and backfill operator wiring.
+        let bootstrap = ctx
+            .server
+            .post(&format!("/realms/{}/import", tenant))
+            .add_header("Authorization", auth_header(&admin_token))
+            .json(&json!({
+                "template": "tenant-default",
+                "bootstrap_admin": {
+                    "username": "superadmin",
+                    "password": "superadmin",
+                },
+            }))
+            .await;
+        assert_eq!(
+            bootstrap.status_code(),
+            200,
+            "import on existing realm failed: {}",
+            bootstrap.text()
+        );
+        let report: Value = bootstrap.json();
+        assert_eq!(report["realm_created"], Value::Bool(false));
+        assert_eq!(report["web_client_created"], Value::Bool(true));
+    }
+
+    #[tokio::test]
+    #[ignore]
     async fn import_rejects_unknown_template() {
         let ctx = setup().await;
         let admin_token = get_admin_token(&ctx).await;

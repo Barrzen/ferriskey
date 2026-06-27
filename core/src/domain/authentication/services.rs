@@ -898,6 +898,7 @@ where
 
         // Fall back to OIDC defaults when the client has no configured default scopes
         if final_scopes.is_empty() {
+            final_scopes.insert(OidcScope::OpenId.to_string());
             final_scopes.insert(OidcScope::Profile.to_string());
             final_scopes.insert(OidcScope::Email.to_string());
         }
@@ -2453,7 +2454,13 @@ where
             .unwrap_or_default();
 
         let contains_openid = scopes.contains(&"openid".to_string());
-        if scopes.is_empty() || !contains_openid {
+        let contains_profile = scopes.contains(&"profile".to_string());
+        let contains_email = scopes.contains(&"email".to_string());
+        // Password-grant portal tokens may omit explicit `openid` when only profile/email
+        // defaults were issued; the bearer token already passed authorize_request.
+        if scopes.is_empty()
+            || (!contains_openid && !contains_profile && !contains_email)
+        {
             return Err(CoreError::InvalidToken);
         }
 

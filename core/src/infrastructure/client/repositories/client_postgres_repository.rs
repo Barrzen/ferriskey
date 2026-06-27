@@ -152,6 +152,11 @@ impl ClientRepository for PostgresClientRepository {
             None => client.enabled,
         };
 
+        client.service_account_enabled = match data.service_account_enabled {
+            Some(enabled) => Set(enabled),
+            None => client.service_account_enabled,
+        };
+
         client.direct_access_grants_enabled = match data.direct_access_grants_enabled {
             Some(enabled) => Set(Some(enabled)),
             None => client.direct_access_grants_enabled,

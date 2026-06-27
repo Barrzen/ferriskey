@@ -27,7 +27,8 @@ use crate::domain::{
         },
     },
     role::{
-        entities::permission::Permissions, ports::RoleRepository, value_objects::CreateRoleRequest,
+        entities::permission::Permissions, ports::RoleRepository,
+        value_objects::{CreateRoleRequest, UpdateRolePermissionsRequest},
     },
     user::ports::{UserRepository, UserRoleRepository},
     webhook::{
@@ -272,6 +273,83 @@ where
 
         Ok(())
     }
+
+    /// Grant the master `auth-svc-m2m` platform operator the cross-realm admin role.
+    /// Idempotent — safe on every bootstrap re-run, including pre-fork realms.
+    pub(crate) async fn assign_platform_operator_realm_admin(
+        &self,
+        _tenant_realm_name: &str,
+        cross_realm_role_id: uuid::Uuid,
+    ) -> Result<(), CoreError> {
+        let realm_master = self
+            .realm_repository
+            .get_by_name("master")
+            .await?
+            .ok_or(CoreError::InvalidRealm)?;
+        let realm_master_id = realm_master.id;
+
+        let expected = super::platform::cross_realm_admin_permissions();
+        if let Ok(Some(role)) = self.role_repository.get_by_id(cross_realm_role_id).await {
+            let missing = expected
+                .iter()
+                .any(|p| !role.permissions.iter().any(|existing| existing == p));
+            if missing {
+                let mut perms = role.permissions.clone();
+                for p in &expected {
+                    if !perms.iter().any(|existing| existing == p) {
+                        perms.push(p.clone());
+                    }
+                }
+                let _ = self
+                    .role_repository
+                    .update_permissions_by_id(
+                        cross_realm_role_id,
+                        UpdateRolePermissionsRequest {
+                            permissions: perms,
+                        },
+                    )
+                    .await;
+            }
+        }
+
+        if let Ok(m2m_client) = self
+            .client_repository
+            .get_by_client_id(
+                super::platform::PLATFORM_M2M_CLIENT_ID.to_string(),
+                realm_master_id,
+            )
+            .await
+        {
+            if super::platform::is_platform_operator_client(&m2m_client, realm_master_id) {
+                if let Ok(m2m_user) = self.user_repository.get_by_client_id(m2m_client.id).await {
+                    let _ = self
+                        .user_role_repository
+                        .assign_role(m2m_user.id, cross_realm_role_id)
+                        .await;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Resolve the master-realm cross-realm admin role for a tenant (creates nothing).
+    pub(crate) async fn cross_realm_admin_role_for(
+        &self,
+        tenant_realm_name: &str,
+    ) -> Result<Option<uuid::Uuid>, CoreError> {
+        let realm_master = self
+            .realm_repository
+            .get_by_name("master")
+            .await?
+            .ok_or(CoreError::InvalidRealm)?;
+        let role_name = format!("{tenant_realm_name}-realm");
+        Ok(self
+            .role_repository
+            .find_by_name(role_name, realm_master.id.into())
+            .await?
+            .map(|r| r.id))
+    }
 }
 
 impl<R, U, C, UR, RO, W, I, CS, PM, CSM, RU, CR, H> RealmService
@@ -354,28 +432,8 @@ where
             .assign_role(user.id, role.id)
             .await?;
 
-        // Grant the platform operator (master `auth-svc-m2m` service account) the
-        // same cross-realm admin role so auth-api can manage this tenant realm
-        // without a tenant-scoped token. Best-effort: skip silently when the M2M
-        // client or its service account isn't provisioned yet, and ignore
-        // duplicate-assignment errors.
-        if let Ok(m2m_client) = self
-            .client_repository
-            .get_by_client_id(
-                super::platform::PLATFORM_M2M_CLIENT_ID.to_string(),
-                realm_master_id,
-            )
-            .await
-        {
-            if super::platform::is_platform_operator_client(&m2m_client, realm_master_id) {
-                if let Ok(m2m_user) = self.user_repository.get_by_client_id(m2m_client.id).await {
-                    let _ = self
-                        .user_role_repository
-                        .assign_role(m2m_user.id, role.id)
-                        .await;
-                }
-            }
-        }
+        self.assign_platform_operator_realm_admin(&realm.name, role.id)
+            .await?;
 
         // Clients in the new realm
         self.client_repository

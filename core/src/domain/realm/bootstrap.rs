@@ -13,12 +13,13 @@ use crate::domain::{
     client::{
         entities::{Client, ClientType},
         ports::{ClientRepository, RedirectUriRepository},
-        value_objects::CreateClientRequest,
+        value_objects::{CreateClientRequest, UpdateClientRequest},
     },
     common::{entities::app_errors::CoreError, generate_random_string},
     credential::ports::CredentialRepository,
     crypto::HasherRepository,
     realm::{
+        entities::RealmId,
         ports::{
             BootstrapRealmInput, BootstrapRealmReport, CreateRealmInput, RealmRepository,
             RealmService,
@@ -93,19 +94,7 @@ where
         if input.include_tenant_m2m {
             let secret = generate_random_string();
             let (created, _) = self
-                .ensure_client(CreateClientRequest {
-                    realm_id,
-                    name: "Auth Service M2M (reserved)".to_string(),
-                    client_id: super::platform::PLATFORM_M2M_CLIENT_ID.to_string(),
-                    secret: Some(secret.clone()),
-                    enabled: true,
-                    protocol: "openid-connect".to_string(),
-                    public_client: false,
-                    service_account_enabled: true,
-                    direct_access_grants_enabled: false,
-                    oauth_device_code_grant_enabled: false,
-                    client_type: ClientType::Confidential,
-                })
+                .ensure_tenant_m2m_client(realm_id, secret.clone())
                 .await?;
             report.tenant_m2m_created = created;
             if created {
@@ -237,7 +226,92 @@ where
             }
         }
 
+        // Backfill platform-operator cross-realm admin on pre-fork realms (idempotent).
+        if let Some(role_id) = self.cross_realm_admin_role_for(&input.realm_name).await? {
+            self.assign_platform_operator_realm_admin(&input.realm_name, role_id)
+                .await?;
+        }
+
         Ok(report)
+    }
+
+    /// Ensure tenant `auth-svc-m2m` exists with service account enabled (repairs legacy clients).
+    async fn ensure_tenant_m2m_client(
+        &self,
+        realm_id: RealmId,
+        create_secret: String,
+    ) -> Result<(bool, Client), CoreError> {
+        let client_id = super::platform::PLATFORM_M2M_CLIENT_ID.to_string();
+        match self
+            .client_repository
+            .get_by_client_id(client_id.clone(), realm_id)
+            .await
+        {
+            Ok(existing) => {
+                let client = if !existing.service_account_enabled {
+                    self.client_repository
+                        .update_client(
+                            existing.id,
+                            UpdateClientRequest {
+                                service_account_enabled: Some(true),
+                                ..Default::default()
+                            },
+                        )
+                        .await?
+                } else {
+                    existing
+                };
+                self.ensure_service_account_user(realm_id, &client).await?;
+                Ok((false, client))
+            }
+            Err(_) => {
+                let (created, client) = self
+                    .ensure_client(CreateClientRequest {
+                        realm_id,
+                        name: "Auth Service M2M (reserved)".to_string(),
+                        client_id,
+                        secret: Some(create_secret),
+                        enabled: true,
+                        protocol: "openid-connect".to_string(),
+                        public_client: false,
+                        service_account_enabled: true,
+                        direct_access_grants_enabled: false,
+                        oauth_device_code_grant_enabled: false,
+                        client_type: ClientType::Confidential,
+                    })
+                    .await?;
+                if created {
+                    self.ensure_service_account_user(realm_id, &client).await?;
+                }
+                Ok((created, client))
+            }
+        }
+    }
+
+    async fn ensure_service_account_user(
+        &self,
+        realm_id: RealmId,
+        client: &Client,
+    ) -> Result<(), CoreError> {
+        if self.user_repository.get_by_client_id(client.id).await.is_ok() {
+            return Ok(());
+        }
+        let service_account_username = format!("service-account-{}", client.client_id);
+        let service_account_email = format!("{}@serviceaccount.local", client.client_id);
+        let _ = self
+            .user_repository
+            .create_user(CreateUserRequest {
+                realm_id,
+                client_id: Some(client.id),
+                username: service_account_username,
+                firstname: Some("Service".to_string()),
+                lastname: Some("Account".to_string()),
+                email: Some(service_account_email),
+                email_verified: true,
+                enabled: true,
+            })
+            .await;
+        Ok(())
     }
 
     /// Create the client if it does not already exist. Returns `(created, client)`.
