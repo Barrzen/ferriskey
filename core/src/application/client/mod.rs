@@ -107,6 +107,14 @@ impl ClientService for ApplicationService {
         self.client_service.get_clients(identity, input).await
     }
 
+    async fn get_client_secret(
+        &self,
+        identity: Identity,
+        input: GetClientInput,
+    ) -> Result<Option<String>, CoreError> {
+        self.client_service.get_client_secret(identity, input).await
+    }
+
     async fn get_redirect_uris(
         &self,
         identity: Identity,

@@ -4,7 +4,11 @@ use super::handlers::update_password_policy::{
     __path_update_password_policy, update_password_policy,
 };
 use crate::application::auth::auth;
+use crate::application::http::realm::handlers::bootstrap_realm::{
+    __path_bootstrap_realm, bootstrap_realm,
+};
 use crate::application::http::realm::handlers::create_realm::{__path_create_realm, create_realm};
+use crate::application::http::realm::handlers::import_realm::{__path_import_realm, import_realm};
 use crate::application::http::realm::handlers::delete_realm::{__path_delete_realm, delete_realm};
 use crate::application::http::realm::handlers::delete_smtp_config::{
     __path_delete_smtp_config, delete_smtp_config,
@@ -33,6 +37,8 @@ use utoipa::OpenApi;
 #[openapi(paths(
     get_realm,
     create_realm,
+    bootstrap_realm,
+    import_realm,
     update_realm,
     delete_realm,
     update_realm_setting,
@@ -69,6 +75,20 @@ pub fn realm_routes(state: AppState) -> Router<AppState> {
         .route(
             &format!("{}/realms", state.args.server.root_path),
             post(create_realm),
+        )
+        .route(
+            &format!(
+                "{}/realms/{{realm_name}}/bootstrap",
+                state.args.server.root_path
+            ),
+            post(bootstrap_realm),
+        )
+        .route(
+            &format!(
+                "{}/realms/{{realm_name}}/import",
+                state.args.server.root_path
+            ),
+            post(import_realm),
         )
         .route(
             &format!("{}/realms/{{realm_name}}", state.args.server.root_path),

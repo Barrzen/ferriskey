@@ -611,6 +611,11 @@ where
             self.mapper_engine
                 .apply_mappers(&all_mappers, &context, TokenType::AccessToken)?;
 
+        // Detect the reserved master-realm platform operator before `input.client_id`
+        // is moved into the claim builder below.
+        let is_platform_operator = input.realm_name == "master"
+            && input.client_id == crate::domain::realm::platform::PLATFORM_M2M_CLIENT_ID;
+
         let mut claims = JwtClaim::new(
             input.user_id,
             input.username,
@@ -630,6 +635,19 @@ where
             }
         }
         claims.additional_claims = access_mapper_output.claims;
+
+        // Platform operator: the reserved master-realm `auth-svc-m2m` service account
+        // (client_credentials) manages every tenant realm, so advertise that in its
+        // access tokens for downstream gateways. Scoped to master to avoid leaking the
+        // claim into tenant-local clients sharing the id.
+        if is_platform_operator {
+            claims
+                .additional_claims
+                .insert("platform_operator".to_string(), serde_json::Value::Bool(true));
+            claims
+                .additional_claims
+                .insert("managed_realms".to_string(), serde_json::json!(["*"]));
+        }
 
         // `preferred_username` and `email` are now injected exclusively via protocol
         // mappers bound to the `profile` / `email` scopes.  Clearing the hard-coded

@@ -1,6 +1,6 @@
 use axum::{
     Router, middleware,
-    routing::{delete, get, patch, put},
+    routing::{delete, get, put},
 };
 use utoipa::OpenApi;
 
@@ -10,6 +10,7 @@ use super::handlers::{
     create_role::{__path_create_role, create_role},
     delete_role::{__path_delete_role, delete_role},
     get_role::{__path_get_role, get_role},
+    get_role_permissions::{__path_get_role_permissions, get_role_permissions},
     get_roles::{__path_get_roles, get_roles},
     update_role::{__path_update_role, update_role},
     update_role_permissions::{__path_update_role_permissions, update_role_permissions},
@@ -20,6 +21,7 @@ use super::handlers::{
     create_role,
     get_roles,
     get_role,
+    get_role_permissions,
     update_role,
     update_role_permissions,
     delete_role
@@ -61,7 +63,7 @@ pub fn role_routes(state: AppState) -> Router<AppState> {
                 "{}/realms/{{realm_name}}/roles/{{role_id}}/permissions",
                 state.args.server.root_path
             ),
-            patch(update_role_permissions),
+            get(get_role_permissions).patch(update_role_permissions),
         )
         .layer(middleware::from_fn_with_state(state.clone(), auth))
 }

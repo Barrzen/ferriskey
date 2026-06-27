@@ -11,6 +11,53 @@ pub struct CreateRealmValidator {
 }
 
 #[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
+pub struct BootstrapAdminValidator {
+    #[validate(length(min = 1, message = "username is required"))]
+    pub username: String,
+    #[validate(length(min = 1, message = "password is required"))]
+    pub password: String,
+    #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub firstname: Option<String>,
+    #[serde(default)]
+    pub lastname: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
+pub struct BootstrapRealmValidator {
+    #[validate(nested)]
+    #[serde(default)]
+    pub bootstrap_admin: Option<BootstrapAdminValidator>,
+    #[serde(default)]
+    pub include_tenant_m2m: bool,
+    #[serde(default)]
+    pub auth_public_base_url: Option<String>,
+    #[serde(default)]
+    pub portal_origin: Option<String>,
+}
+
+/// Body for `POST /realms/{realm_name}/import`. `template` selects a named tenant
+/// layout (defaults to `tenant-default`); the remaining fields override the
+/// resolved skeleton.
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
+pub struct ImportRealmValidator {
+    #[serde(default = "default_template")]
+    pub template: String,
+    #[validate(nested)]
+    #[serde(default)]
+    pub bootstrap_admin: Option<BootstrapAdminValidator>,
+    #[serde(default)]
+    pub auth_public_base_url: Option<String>,
+    #[serde(default)]
+    pub portal_origin: Option<String>,
+}
+
+fn default_template() -> String {
+    "tenant-default".to_string()
+}
+
+#[derive(Debug, Serialize, Deserialize, Validate, ToSchema)]
 pub struct UpdateRealmValidator {
     #[validate(length(min = 1, message = "name is required"))]
     pub name: String,

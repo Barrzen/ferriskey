@@ -223,6 +223,17 @@ where
             .map_err(|_| CoreError::NotFound)
     }
 
+    async fn get_role_permissions(
+        &self,
+        identity: Identity,
+        realm_name: String,
+        role_id: uuid::Uuid,
+    ) -> Result<Vec<String>, CoreError> {
+        // Thin wrapper around get_role (which performs the view-role policy check).
+        let role = self.get_role(identity, realm_name, role_id).await?;
+        Ok(role.permissions)
+    }
+
     async fn get_user_roles(
         &self,
         identity: Identity,

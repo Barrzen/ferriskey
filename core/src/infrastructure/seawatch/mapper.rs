@@ -30,6 +30,7 @@ impl From<security_events::Model> for SecurityEvent {
             "client_created" => SecurityEventType::ClientCreated,
             "client_deleted" => SecurityEventType::ClientDeleted,
             "client_secret_rotated" => SecurityEventType::ClientSecretRotated,
+            "client_secret_viewed" => SecurityEventType::ClientSecretViewed,
             "realm_config_changed" => SecurityEventType::RealmConfigChanged,
             "email_not_sent" => SecurityEventType::EmailNotSent,
             _ => SecurityEventType::LoginSuccess,

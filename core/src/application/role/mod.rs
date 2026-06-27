@@ -51,6 +51,17 @@ impl RoleService for ApplicationService {
         self.role_service.get_roles(identity, realm_name).await
     }
 
+    async fn get_role_permissions(
+        &self,
+        identity: Identity,
+        realm_name: String,
+        role_id: Uuid,
+    ) -> Result<Vec<String>, CoreError> {
+        self.role_service
+            .get_role_permissions(identity, realm_name, role_id)
+            .await
+    }
+
     async fn get_user_roles(
         &self,
         identity: Identity,

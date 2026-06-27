@@ -589,17 +589,11 @@ where
 
         let user = self.user_repository.get_by_id(input.user_id).await?;
 
-        let user_realm = user
-            .realm
-            .as_ref()
-            .ok_or(CoreError::Forbidden("user has no realm".to_string()))?;
-
-        if user_realm.name != realm.name && user_realm.name != "master" {
-            return Err(CoreError::Forbidden(
-                "Cannot access permissions from a different realm".to_string(),
-            ));
-        }
-
+        // The caller's authority was already enforced by `can_view_user_permissions`
+        // above. Delegate cross-realm resolution to the policy
+        // (`get_permission_for_target_realm`) instead of rejecting tenant users
+        // whose home realm differs from the requested realm — that blanket check
+        // broke platform operators querying tenant permissions.
         let permissions = self
             .policy
             .get_permission_for_target_realm(&user, &realm)

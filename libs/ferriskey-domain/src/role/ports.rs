@@ -32,6 +32,14 @@ pub trait RoleService: Send + Sync {
         identity: Identity,
         realm_name: String,
     ) -> impl Future<Output = Result<Vec<Role>, CoreError>> + Send;
+    /// GET symmetry with `update_role_permissions`: returns the role's permission
+    /// names after the standard view-role policy check.
+    fn get_role_permissions(
+        &self,
+        identity: Identity,
+        realm_name: String,
+        role_id: Uuid,
+    ) -> impl Future<Output = Result<Vec<String>, CoreError>> + Send;
     fn update_role_permissions(
         &self,
         identity: Identity,

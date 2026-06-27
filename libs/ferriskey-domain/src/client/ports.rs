@@ -67,6 +67,14 @@ pub trait ClientService: Send + Sync {
         identity: Identity,
         input: GetClientsInput,
     ) -> impl Future<Output = Result<Vec<Client>, CoreError>> + Send;
+    /// Returns the client's confidential secret (if any) behind the view-clients
+    /// policy. Use this dedicated endpoint instead of reading `secret` from the
+    /// redacted `get_client(s)` responses.
+    fn get_client_secret(
+        &self,
+        identity: Identity,
+        input: GetClientInput,
+    ) -> impl Future<Output = Result<Option<String>, CoreError>> + Send;
 
     fn get_redirect_uris(
         &self,

@@ -320,6 +320,8 @@ pub async fn create_service(config: FerriskeyConfig) -> Result<ApplicationServic
             protocol_mapper.clone(),
             scope_mapping.clone(),
             redirect_uri.clone(),
+            credential.clone(),
+            hasher.clone(),
             policy.clone(),
         ),
         mail_service: MailServiceImpl::new(realm.clone(), smtp_config.clone(), policy.clone()),

@@ -7,6 +7,7 @@ pub mod delete_post_logout_redirect_uri;
 pub mod delete_redirect_uri;
 pub mod get_client;
 pub mod get_client_roles;
+pub mod get_client_secret;
 pub mod get_clients;
 pub mod get_post_logout_redirect_uris;
 pub mod get_redirect_uris;

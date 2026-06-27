@@ -241,6 +241,22 @@ where
             "insufficient permissions",
         )?;
 
+        // Idempotent: if the same redirect URI value already exists for this
+        // client, return the existing one instead of erroring on the unique
+        // constraint. Lets provisioning scripts re-run safely.
+        if let Ok(existing) = self
+            .redirect_uri_repository
+            .get_by_client_id(input.client_id)
+            .await
+        {
+            if let Some(found) = existing
+                .into_iter()
+                .find(|uri| uri.value == input.payload.value)
+            {
+                return Ok(found);
+            }
+        }
+
         let redirect_uri = self
             .redirect_uri_repository
             .create_redirect_uri(input.client_id, input.payload.value, input.payload.enabled)
@@ -493,10 +509,56 @@ where
             "insufficient permissions",
         )?;
 
-        self.client_repository
+        let mut client = self
+            .client_repository
             .get_by_id(input.client_id)
             .await
-            .map_err(|_| CoreError::InvalidClient)
+            .map_err(|_| CoreError::InvalidClient)?;
+
+        // Never leak the confidential secret through the generic client read;
+        // callers must use the dedicated `get_client_secret` endpoint.
+        client.secret = None;
+        Ok(client)
+    }
+
+    async fn get_client_secret(
+        &self,
+        identity: Identity,
+        input: GetClientInput,
+    ) -> Result<Option<String>, CoreError> {
+        let realm = self
+            .realm_repository
+            .get_by_name(&input.realm_name)
+            .await
+            .map_err(|_| CoreError::InvalidRealm)?
+            .ok_or(CoreError::InvalidRealm)?;
+
+        ensure_policy(
+            self.policy.can_view_client(&identity, &realm).await,
+            "insufficient permissions",
+        )?;
+
+        let client = self
+            .client_repository
+            .get_by_id(input.client_id)
+            .await
+            .map_err(|_| CoreError::InvalidClient)?;
+
+        // Secret access is sensitive — record it for audit (best-effort).
+        let _ = self
+            .security_event_repository
+            .store_event(
+                SecurityEvent::new(
+                    realm.id,
+                    SecurityEventType::ClientSecretViewed,
+                    EventStatus::Success,
+                    identity.id(),
+                )
+                .with_target("client".to_string(), client.id, None),
+            )
+            .await;
+
+        Ok(client.secret)
     }
 
     async fn get_client_roles(
@@ -540,10 +602,17 @@ where
             "insufficient permissions",
         )?;
 
-        self.client_repository
+        let mut clients = self
+            .client_repository
             .get_by_realm_id(realm_id)
             .await
-            .map_err(|_| CoreError::NotFound)
+            .map_err(|_| CoreError::NotFound)?;
+
+        // Redact confidential secrets from list responses.
+        for client in &mut clients {
+            client.secret = None;
+        }
+        Ok(clients)
     }
 
     async fn get_redirect_uris(
