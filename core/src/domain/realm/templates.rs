@@ -33,7 +33,7 @@ pub fn resolve_template(name: &str, realm_name: String) -> Option<BootstrapRealm
         TENANT_DEFAULT_TEMPLATE => Some(BootstrapRealmInput {
             realm_name,
             bootstrap_admin: None,
-            include_tenant_m2m: true,
+            include_tenant_m2m: false,
             auth_public_base_url: None,
             portal_origin: None,
         }),
@@ -50,7 +50,7 @@ mod tests {
         let input = resolve_template(TENANT_DEFAULT_TEMPLATE, "acme".to_string())
             .expect("tenant-default should resolve");
         assert_eq!(input.realm_name, "acme");
-        assert!(input.include_tenant_m2m);
+        assert!(!input.include_tenant_m2m);
     }
 
     #[test]

@@ -44,7 +44,7 @@ Authorization: Bearer <admin or platform-operator token>
 Content-Type: application/json
 
 {
-  "include_tenant_m2m": true,
+  "include_tenant_m2m": false,
   "auth_public_base_url": "https://auth.example.com",
   "portal_origin": "https://portal.example.com",
   "bootstrap_admin": {
@@ -62,7 +62,7 @@ What it provisions (each step is idempotent — safe to re-run):
 | Step | Detail |
 |------|--------|
 | Realm | created via `create_realm` if missing |
-| `auth-svc-m2m` (tenant) | optional, when `include_tenant_m2m` is true — confidential + service account |
+| `auth-svc-m2m` (tenant) | optional via `include_tenant_m2m` (default **false** in `tenant-default` template) — auth-api uses master M2M only |
 | `auth-svc-web` | confidential; callback redirect seeded from `auth_public_base_url` |
 | `auth-svc-login-ui` | public; redirects seeded from `portal_origin` |
 | Roles | `superadmin`, `admin`, `staff` |
