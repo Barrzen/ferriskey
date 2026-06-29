@@ -7,7 +7,7 @@ use crate::{
         realm::{
             entities::{Realm, RealmId, RealmLoginSetting, RealmSetting},
             ports::{
-                BootstrapRealmInput, BootstrapRealmReport, CreateRealmInput,
+                CreateRealmInput,
                 CreateRealmWithUserInput, DeleteRealmInput, GetRealmInput, GetRealmSettingInput,
                 RealmService, UpdateRealmInput, UpdateRealmSettingInput,
             },
@@ -96,13 +96,5 @@ impl RealmService for ApplicationService {
 
     async fn seed_default_scopes(&self, realm_id: RealmId) -> Result<(), CoreError> {
         self.realm_service.seed_default_scopes(realm_id).await
-    }
-
-    async fn bootstrap_realm(
-        &self,
-        identity: Identity,
-        input: BootstrapRealmInput,
-    ) -> Result<BootstrapRealmReport, CoreError> {
-        self.realm_service.bootstrap_realm(identity, input).await
     }
 }

@@ -591,9 +591,8 @@ where
 
         // The caller's authority was already enforced by `can_view_user_permissions`
         // above. Delegate cross-realm resolution to the policy
-        // (`get_permission_for_target_realm`) instead of rejecting tenant users
-        // whose home realm differs from the requested realm — that blanket check
-        // broke platform operators querying tenant permissions.
+        // (`get_permission_for_target_realm`) instead of rejecting users whose
+        // home realm differs from the requested realm.
         let permissions = self
             .policy
             .get_permission_for_target_realm(&user, &realm)

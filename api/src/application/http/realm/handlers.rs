@@ -1,7 +1,5 @@
-pub mod bootstrap_realm;
 pub mod create_realm;
 pub mod delete_realm;
-pub mod import_realm;
 pub mod delete_smtp_config;
 pub mod get_login_realm_settings;
 pub mod get_password_policy;

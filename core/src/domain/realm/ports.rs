@@ -1,7 +1,5 @@
 use std::fmt::Debug;
 
-use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use uuid::Uuid;
 
 use crate::domain::realm::entities::RealmId;
@@ -68,61 +66,6 @@ pub trait RealmService: Send + Sync {
         &self,
         realm_name: String,
     ) -> impl Future<Output = Result<RealmLoginSetting, CoreError>> + Send;
-
-    /// Idempotent tenant-realm bootstrap mirroring auth-api `create-realm.sh`:
-    /// creates the realm, reserved service clients (`auth-svc-web`,
-    /// `auth-svc-login-ui`, optional tenant `auth-svc-m2m`), the
-    /// `superadmin`/`admin`/`staff` roles, and a bootstrap admin user.
-    fn bootstrap_realm(
-        &self,
-        identity: Identity,
-        input: BootstrapRealmInput,
-    ) -> impl Future<Output = Result<BootstrapRealmReport, CoreError>> + Send;
-}
-
-/// Bootstrap admin credentials seeded into the new tenant realm.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BootstrapAdminInput {
-    pub username: String,
-    pub password: String,
-    pub email: Option<String>,
-    pub firstname: Option<String>,
-    pub lastname: Option<String>,
-}
-
-/// Input for idempotent tenant-realm bootstrap.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BootstrapRealmInput {
-    pub realm_name: String,
-    /// Bootstrap admin user. When omitted, no admin user is created.
-    #[serde(default)]
-    pub bootstrap_admin: Option<BootstrapAdminInput>,
-    /// Also provision a tenant-local `auth-svc-m2m` confidential service-account
-    /// client (backward compatibility with older tenant layouts).
-    #[serde(default)]
-    pub include_tenant_m2m: bool,
-    /// Public base URL of the auth-api facade; used to seed the `auth-svc-web`
-    /// callback redirect URI. Redirect seeding is skipped when `None`.
-    #[serde(default)]
-    pub auth_public_base_url: Option<String>,
-    /// Portal/login-ui origin; used to seed `auth-svc-login-ui` redirect URIs.
-    #[serde(default)]
-    pub portal_origin: Option<String>,
-}
-
-/// Report describing what the bootstrap created. Generated client secrets are
-/// only populated on first creation of the respective client.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
-pub struct BootstrapRealmReport {
-    pub realm_name: String,
-    pub realm_created: bool,
-    pub web_client_created: bool,
-    pub login_ui_client_created: bool,
-    pub tenant_m2m_created: bool,
-    pub roles_created: Vec<String>,
-    pub admin_user_created: bool,
-    pub web_client_secret: Option<String>,
-    pub tenant_m2m_secret: Option<String>,
 }
 
 pub trait MailService: Send + Sync {

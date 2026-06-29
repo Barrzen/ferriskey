@@ -15,8 +15,6 @@ use crate::domain::{
         generate_random_string,
         policies::{FerriskeyPolicy, ensure_policy},
     },
-    credential::ports::CredentialRepository,
-    crypto::HasherRepository,
     realm::{
         entities::{Realm, RealmId, RealmLoginSetting, RealmSetting, SmtpConfig},
         ports::{
@@ -28,7 +26,7 @@ use crate::domain::{
     },
     role::{
         entities::permission::Permissions, ports::RoleRepository,
-        value_objects::{CreateRoleRequest, UpdateRolePermissionsRequest},
+        value_objects::CreateRoleRequest,
     },
     user::ports::{UserRepository, UserRoleRepository},
     webhook::{
@@ -44,7 +42,7 @@ use serde_json::json;
 use tracing::instrument;
 
 #[derive(Clone, Debug)]
-pub struct RealmServiceImpl<R, U, C, UR, RO, W, I, CS, PM, CSM, RU, CR, H>
+pub struct RealmServiceImpl<R, U, C, UR, RO, W, I, CS, PM, CSM, RU>
 where
     R: RealmRepository,
     U: UserRepository,
@@ -57,8 +55,6 @@ where
     PM: ProtocolMapperRepository,
     CSM: ClientScopeMappingRepository,
     RU: RedirectUriRepository,
-    CR: CredentialRepository,
-    H: HasherRepository,
 {
     pub(crate) realm_repository: Arc<R>,
     pub(crate) user_repository: Arc<U>,
@@ -71,14 +67,12 @@ where
     pub(crate) protocol_mapper_repository: Arc<PM>,
     pub(crate) client_scope_mapping_repository: Arc<CSM>,
     pub(crate) redirect_uri_repository: Arc<RU>,
-    pub(crate) credential_repository: Arc<CR>,
-    pub(crate) hasher_repository: Arc<H>,
 
     pub(crate) policy: Arc<FerriskeyPolicy<U, C, UR>>,
 }
 
-impl<R, U, C, UR, RO, W, I, CS, PM, CSM, RU, CR, H>
-    RealmServiceImpl<R, U, C, UR, RO, W, I, CS, PM, CSM, RU, CR, H>
+impl<R, U, C, UR, RO, W, I, CS, PM, CSM, RU>
+    RealmServiceImpl<R, U, C, UR, RO, W, I, CS, PM, CSM, RU>
 where
     R: RealmRepository,
     U: UserRepository,
@@ -91,8 +85,6 @@ where
     PM: ProtocolMapperRepository,
     CSM: ClientScopeMappingRepository,
     RU: RedirectUriRepository,
-    CR: CredentialRepository,
-    H: HasherRepository,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -107,8 +99,6 @@ where
         protocol_mapper_repository: Arc<PM>,
         client_scope_mapping_repository: Arc<CSM>,
         redirect_uri_repository: Arc<RU>,
-        credential_repository: Arc<CR>,
-        hasher_repository: Arc<H>,
         policy: Arc<FerriskeyPolicy<U, C, UR>>,
     ) -> Self {
         Self {
@@ -123,8 +113,6 @@ where
             protocol_mapper_repository,
             client_scope_mapping_repository,
             redirect_uri_repository,
-            credential_repository,
-            hasher_repository,
             policy,
         }
     }
@@ -273,87 +261,10 @@ where
 
         Ok(())
     }
-
-    /// Grant the master `auth-svc-m2m` platform operator the cross-realm admin role.
-    /// Idempotent — safe on every bootstrap re-run, including pre-fork realms.
-    pub(crate) async fn assign_platform_operator_realm_admin(
-        &self,
-        _tenant_realm_name: &str,
-        cross_realm_role_id: uuid::Uuid,
-    ) -> Result<(), CoreError> {
-        let realm_master = self
-            .realm_repository
-            .get_by_name("master")
-            .await?
-            .ok_or(CoreError::InvalidRealm)?;
-        let realm_master_id = realm_master.id;
-
-        let expected = super::platform::cross_realm_admin_permissions();
-        if let Ok(Some(role)) = self.role_repository.get_by_id(cross_realm_role_id).await {
-            let missing = expected
-                .iter()
-                .any(|p| !role.permissions.iter().any(|existing| existing == p));
-            if missing {
-                let mut perms = role.permissions.clone();
-                for p in &expected {
-                    if !perms.iter().any(|existing| existing == p) {
-                        perms.push(p.clone());
-                    }
-                }
-                let _ = self
-                    .role_repository
-                    .update_permissions_by_id(
-                        cross_realm_role_id,
-                        UpdateRolePermissionsRequest {
-                            permissions: perms,
-                        },
-                    )
-                    .await;
-            }
-        }
-
-        if let Ok(m2m_client) = self
-            .client_repository
-            .get_by_client_id(
-                super::platform::PLATFORM_M2M_CLIENT_ID.to_string(),
-                realm_master_id,
-            )
-            .await
-        {
-            if super::platform::is_platform_operator_client(&m2m_client, realm_master_id) {
-                if let Ok(m2m_user) = self.user_repository.get_by_client_id(m2m_client.id).await {
-                    let _ = self
-                        .user_role_repository
-                        .assign_role(m2m_user.id, cross_realm_role_id)
-                        .await;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Resolve the master-realm cross-realm admin role for a tenant (creates nothing).
-    pub(crate) async fn cross_realm_admin_role_for(
-        &self,
-        tenant_realm_name: &str,
-    ) -> Result<Option<uuid::Uuid>, CoreError> {
-        let realm_master = self
-            .realm_repository
-            .get_by_name("master")
-            .await?
-            .ok_or(CoreError::InvalidRealm)?;
-        let role_name = format!("{tenant_realm_name}-realm");
-        Ok(self
-            .role_repository
-            .find_by_name(role_name, realm_master.id.into())
-            .await?
-            .map(|r| r.id))
-    }
 }
 
-impl<R, U, C, UR, RO, W, I, CS, PM, CSM, RU, CR, H> RealmService
-    for RealmServiceImpl<R, U, C, UR, RO, W, I, CS, PM, CSM, RU, CR, H>
+impl<R, U, C, UR, RO, W, I, CS, PM, CSM, RU> RealmService
+    for RealmServiceImpl<R, U, C, UR, RO, W, I, CS, PM, CSM, RU>
 where
     R: RealmRepository,
     C: ClientRepository,
@@ -366,8 +277,6 @@ where
     PM: ProtocolMapperRepository,
     CSM: ClientScopeMappingRepository,
     RU: RedirectUriRepository,
-    CR: CredentialRepository,
-    H: HasherRepository,
 {
     #[instrument(
         skip(self, identity, input),
@@ -415,10 +324,7 @@ where
                 client_id: Some(client.id),
                 description: None,
                 name,
-                // Platform operators manage the whole tenant realm, not just the
-                // realm record, so the `{realm}-realm` role carries the full
-                // cross-realm admin permission set.
-                permissions: super::platform::cross_realm_admin_permissions(),
+                permissions: vec![Permissions::ManageRealm.name()],
                 realm_id: realm_master_id,
             })
             .await?;
@@ -430,9 +336,6 @@ where
 
         self.user_role_repository
             .assign_role(user.id, role.id)
-            .await?;
-
-        self.assign_platform_operator_realm_admin(&realm.name, role.id)
             .await?;
 
         // Clients in the new realm
@@ -930,14 +833,6 @@ where
 
         Ok(settings)
     }
-
-    async fn bootstrap_realm(
-        &self,
-        identity: Identity,
-        input: crate::domain::realm::ports::BootstrapRealmInput,
-    ) -> Result<crate::domain::realm::ports::BootstrapRealmReport, CoreError> {
-        self.bootstrap_realm_impl(identity, input).await
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -1118,8 +1013,6 @@ mod tests {
         protocol_mapper_repo: Arc<MockProtocolMapperRepository>,
         client_scope_mapping_repo: Arc<MockClientScopeMappingRepository>,
         redirect_uri_repo: Arc<MockRedirectUriRepository>,
-        credential_repo: Arc<crate::domain::credential::ports::MockCredentialRepository>,
-        hasher_repo: Arc<crate::domain::crypto::MockHasherRepository>,
     }
 
     impl RealmServiceTestBuilder {
@@ -1135,9 +1028,6 @@ mod tests {
             let protocol_mapper_repo = Arc::new(MockProtocolMapperRepository::new());
             let client_scope_mapping_repo = Arc::new(MockClientScopeMappingRepository::new());
             let redirect_uri_repo = Arc::new(MockRedirectUriRepository::new());
-            let credential_repo =
-                Arc::new(crate::domain::credential::ports::MockCredentialRepository::new());
-            let hasher_repo = Arc::new(crate::domain::crypto::MockHasherRepository::new());
 
             Self {
                 realm_repo,
@@ -1151,8 +1041,6 @@ mod tests {
                 protocol_mapper_repo,
                 client_scope_mapping_repo,
                 redirect_uri_repo,
-                credential_repo,
-                hasher_repo,
             }
         }
 
@@ -1415,53 +1303,6 @@ mod tests {
             self
         }
 
-        fn with_assign_role_times(mut self, times: usize) -> Self {
-            Arc::get_mut(&mut self.user_role_repo)
-                .unwrap()
-                .expect_assign_role()
-                .withf(|_, _| true)
-                .times(times)
-                .returning(|_, _| Box::pin(async move { Ok(()) }));
-            self
-        }
-
-        fn with_platform_m2m_missing(mut self, master_realm_id: RealmId) -> Self {
-            Arc::get_mut(&mut self.client_repo)
-                .unwrap()
-                .expect_get_by_client_id()
-                .withf(move |client_id, realm_id| {
-                    client_id == "auth-svc-m2m" && *realm_id == master_realm_id
-                })
-                .times(1)
-                .return_once(|_, _| Box::pin(async move { Err(CoreError::NotFound) }));
-            self
-        }
-
-        fn with_platform_m2m_client(
-            mut self,
-            master_realm_id: RealmId,
-            m2m_client: crate::domain::client::entities::Client,
-            m2m_user: crate::domain::user::entities::User,
-        ) -> Self {
-            let m2m_client_id = m2m_client.id;
-            Arc::get_mut(&mut self.client_repo)
-                .unwrap()
-                .expect_get_by_client_id()
-                .withf(move |client_id, realm_id| {
-                    client_id == "auth-svc-m2m" && *realm_id == master_realm_id
-                })
-                .times(1)
-                .return_once(move |_, _| Box::pin(async move { Ok(m2m_client) }));
-
-            Arc::get_mut(&mut self.user_repo)
-                .unwrap()
-                .expect_get_by_client_id()
-                .with(mockall::predicate::eq(m2m_client_id))
-                .times(1)
-                .return_once(move |_| Box::pin(async move { Ok(m2m_user) }));
-            self
-        }
-
         fn with_seed_default_scopes(mut self, new_realm_id: RealmId) -> Self {
             Arc::get_mut(&mut self.client_scope_repo)
                 .unwrap()
@@ -1564,8 +1405,6 @@ mod tests {
             MockProtocolMapperRepository,
             MockClientScopeMappingRepository,
             MockRedirectUriRepository,
-            crate::domain::credential::ports::MockCredentialRepository,
-            crate::domain::crypto::MockHasherRepository,
         > {
             let policy = Arc::new(FerriskeyPolicy::new(
                 self.user_repo.clone(),
@@ -1584,8 +1423,6 @@ mod tests {
                 self.protocol_mapper_repo,
                 self.client_scope_mapping_repo,
                 self.redirect_uri_repo,
-                self.credential_repo,
-                self.hasher_repo,
                 policy,
             )
         }
@@ -1638,68 +1475,6 @@ mod tests {
             .with_seed_default_scopes(new_realm.id)
             .with_security_admin_console_client(new_realm.id)
             .with_redirect_uris()
-            .with_platform_m2m_missing(master_realm.id)
-            .build();
-
-        let created_realm = service.create_realm(identity, input).await?;
-        assert_eq!(created_realm.name, realm_name);
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_create_realm_assigns_platform_operator() -> Result<(), CoreError> {
-        let realm_name = "realm_test";
-        let master_realm = create_test_realm_with_name("master");
-        let identity = create_test_user_identity_with_realm(&master_realm);
-
-        let user = match &identity {
-            Identity::User(u) => u,
-            _ => panic!("Expected user identity"),
-        };
-
-        let admin_role = crate::domain::role::entities::Role {
-            id: uuid::Uuid::new_v4(),
-            name: "admin".to_string(),
-            description: None,
-            permissions: vec![
-                crate::domain::role::entities::permission::Permissions::ManageRealm.name(),
-            ],
-            realm_id: master_realm.id,
-            client_id: None,
-            client: None,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-        };
-
-        let input = CreateRealmInput {
-            realm_name: realm_name.to_string(),
-        };
-        let new_realm = create_test_realm_with_name(realm_name);
-
-        // Reserved platform M2M client + its service account on master.
-        let mut m2m_client = crate::domain::client::entities::Client::from_realm_and_client_id(
-            master_realm.id,
-            super::super::platform::PLATFORM_M2M_CLIENT_ID.to_string(),
-        );
-        m2m_client.service_account_enabled = true;
-        let m2m_user = crate::domain::common::services::tests::create_test_user(master_realm.id);
-
-        let service = RealmServiceTestBuilder::new()
-            .with_master_realm(master_realm.clone())
-            .with_user_permissions(user.id, vec![admin_role])
-            .with_created_realm(realm_name.to_string(), new_realm.clone())
-            .with_realm_settings(new_realm.id)
-            .with_system_client(master_realm.id)
-            .with_role_creation(master_realm.id)
-            // Creator + platform M2M service account each get the cross-realm role.
-            .with_assign_role_times(2)
-            .with_admin_cli_client(new_realm.id)
-            .with_ferriskey_account_client(new_realm.id)
-            .with_seed_default_scopes(new_realm.id)
-            .with_security_admin_console_client(new_realm.id)
-            .with_redirect_uris()
-            .with_platform_m2m_client(master_realm.id, m2m_client, m2m_user)
             .build();
 
         let created_realm = service.create_realm(identity, input).await?;
@@ -1757,7 +1532,6 @@ mod tests {
             .with_seed_default_scopes(new_realm.id)
             .with_security_admin_console_client(new_realm.id)
             .with_redirect_uris()
-            .with_platform_m2m_missing(master_realm.id)
             .with_system_client(master_realm.id)
             .with_admin_role_creation(master_realm.id)
             .with_assign_role()

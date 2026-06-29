@@ -248,13 +248,11 @@ where
             .redirect_uri_repository
             .get_by_client_id(input.client_id)
             .await
-        {
-            if let Some(found) = existing
+            && let Some(found) = existing
                 .into_iter()
                 .find(|uri| uri.value == input.payload.value)
-            {
-                return Ok(found);
-            }
+        {
+            return Ok(found);
         }
 
         let redirect_uri = self

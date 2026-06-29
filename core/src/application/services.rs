@@ -277,8 +277,6 @@ pub struct ApplicationService {
         ProtocolMapperRepo,
         ScopeMappingRepo,
         RedirectUriRepo,
-        CredentialRepo,
-        HasherRepo,
     >,
     pub(crate) mail_service:
         MailServiceImpl<RealmRepo, UserRepo, ClientRepo, UserRoleRepo, SmtpConfigRepo>,
