@@ -16,8 +16,8 @@ Agent playbook for reducing `feat/platform-automation` to a **standard generic I
 | F1 | Done | `docs/cross-realm-admin.md`; `cross_realm_service_account_test.rs`, `admin_api_symmetry_test.rs` |
 | F2 | Done (branch) | Bootstrap/import/platform_operator removed from working tree |
 | F3 | Done | `.cursor/`, `graphify-out/` removed; `.gitignore` updated |
-| F4 | Pending CI/local | Run `cargo test --workspace --lib` and ignored api tests |
-| F5 | Pending | Push branch; **do not** bump auth-service pin until Barrzen orchestrate green |
+| F4 | Partial (local) | `clippy -D warnings` green; realm unit tests green; ignored api tests require Postgres (PoolTimedOut locally); 5 pre-existing unrelated core lib failures |
+| F5 | Done | Pushed `bf369126` on `feat/platform-automation`; tag `pre-separation` at `2fa142fe`. **Do not** bump auth-service pin until Barrzen orchestrate green |
 
 Cross-realm admin guide: [`docs/cross-realm-admin.md`](cross-realm-admin.md).
 
