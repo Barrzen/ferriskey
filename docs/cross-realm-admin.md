@@ -16,7 +16,7 @@ Permission resolution uses `get_permission_for_target_realm` in the policy layer
 
 ## Wiring automation (integrator responsibility)
 
-FerrisKey does **not** auto-configure automation service accounts. Integrators (e.g. an auth-api orchestrator) must use standard admin APIs:
+FerrisKey does **not** auto-configure automation service accounts. External integrators (automation services, provisioning tools) must use standard admin APIs:
 
 | Step | API |
 |------|-----|
